@@ -102,8 +102,8 @@ class App {
     this.setupActionBindings();
     this.setupMouseSimulation();
 
-    // Set default botanical petunia garland palette
-    this.selectPalette('petuniaGarland');
+    // Set default botanical white daisy palette from reference image
+    this.selectPalette('whiteDaisy');
 
     // Wire up modal action buttons
     this.modalBtn.onclick = async () => {

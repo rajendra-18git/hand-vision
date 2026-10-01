@@ -3,6 +3,30 @@
  * Includes botanical petunia garland inspired by the reference illustration.
  */
 export const PALETTES = {
+  whiteDaisy: {
+    id: 'whiteDaisy',
+    name: 'Classic White Daisy',
+    stemColor: 'rgba(46, 125, 50, 0.9)',
+    leafColor: 'rgba(56, 142, 60, 0.92)',
+    leafHighlight: 'rgba(129, 199, 132, 0.88)',
+    leafShadow: 'rgba(27, 94, 32, 0.95)',
+    flowers: [
+      {
+        type: 'daisy',
+        primary: 'rgba(255, 255, 255, 0.99)',
+        secondary: 'rgba(248, 250, 252, 0.95)',
+        petalShadow: 'rgba(203, 213, 225, 0.55)',
+        petalGroove: 'rgba(226, 232, 240, 0.65)',
+        petalBase: 'rgba(254, 240, 138, 0.45)', // Warm golden glow at petal root
+        throat: 'rgba(217, 119, 6, 0.95)',      // Amber eye rim
+        center: 'rgba(245, 158, 11, 0.98)',     // Rich golden sunflower disc
+        centerHighlight: 'rgba(253, 224, 71, 0.98)',
+        stippleDark: 'rgba(180, 83, 9, 0.85)',
+        stippleLight: 'rgba(254, 249, 195, 0.95)',
+        pistil: 'rgba(254, 240, 138, 0.95)'
+      }
+    ]
+  },
   petuniaGarland: {
     id: 'petuniaGarland',
     name: 'Petunia Garland',
