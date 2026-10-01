@@ -1,8 +1,9 @@
 /**
- * Stage 8: Procedural Generative Botanical Flower Engine
- * Renders pristine photorealistic White Daisies (matching reference design),
- * multi-tiered ray petals with longitudinal ridges, textured Fibonacci golden disc centers,
- * organic foliage, curling tendrils, real-time blossoming, and physics-driven drifting petals.
+ * Stage 8: Realistic Photorealistic Floral Engine with Transparent PNG Sprites
+ * Uses high-resolution photographic daisy assets with alpha blending,
+ * Catmull-Rom spline smoothing, natural anti-crowding spacing, 
+ * velocity-responsive scaling/rotation, live blossoming animations, 
+ * and drifting breeze petals.
  */
 
 import { PALETTES } from '../render/palette.js';
@@ -62,7 +63,32 @@ export class FlowerRenderer {
     this.particles = [];
     this.maxParticles = 350;
 
+    // Load High-Quality Transparent PNG Photographic Assets
+    this.images = {
+      daisy1: this.loadImage('./assets/flowers/daisy_1.png'),
+      daisy2: this.loadImage('./assets/flowers/daisy_2.png'),
+      leaf: this.loadImage('./assets/flowers/daisy_leaf.png'),
+      bud: this.loadImage('./assets/flowers/daisy_bud.png'),
+      petal: this.loadImage('./assets/flowers/daisy_petal.png')
+    };
+
     this.initCanvasSize();
+  }
+
+  loadImage(src) {
+    const img = new Image();
+    img.src = src;
+    img.loaded = false;
+    img.onload = () => {
+      img.loaded = true;
+    };
+    img.onerror = () => {
+      // Fallback if relative path differs
+      if (!src.startsWith('/')) {
+        img.src = '/' + src.replace(/^\.\//, '');
+      }
+    };
+    return img;
   }
 
   initCanvasSize() {
@@ -125,10 +151,10 @@ export class FlowerRenderer {
     this.activeStrokes.set(trackId, stroke);
 
     if (this.mode === 'flower') {
-      // Spawn initial cluster with natural bloom timing
+      // Spawn initial anchor flower and flanking leaves with natural spacing
       this.spawnLeaf(stroke, point, velocity, -1, now);
       this.spawnLeaf(stroke, point, velocity, 1, now + 30);
-      this.spawnFlower(stroke, point, velocity, 1.25, now);
+      this.spawnFlower(stroke, point, velocity, 1.2, now);
       this.spawnTendril(stroke, point, velocity, Math.random() > 0.5 ? 1 : -1, now);
     }
   }
@@ -140,7 +166,7 @@ export class FlowerRenderer {
     const prevRaw = stroke.rawPoints[stroke.rawPoints.length - 1];
     const segmentDist = Math.hypot(point.x - prevRaw.x, point.y - prevRaw.y);
 
-    // Filter out micro-movements to avoid jitter
+    // Filter micro-movements to avoid jitter
     if (segmentDist < 2.0) return;
 
     stroke.rawPoints.push(point);
@@ -148,10 +174,10 @@ export class FlowerRenderer {
     const now = performance.now();
     const speed = Math.min(velocity.speed || 0, 1500);
 
-    // Dynamic stem width
+    // Dynamic stem width based on speed
     const targetWidth = Math.max(2.4, Math.min(5.5, 4.8 - speed * 0.0025)) * this.brushScale;
 
-    // Spline Interpolation for smooth continuous curvature
+    // Spline Interpolation for fluid continuous movement
     const pts = stroke.rawPoints;
     const len = pts.length;
 
@@ -161,7 +187,7 @@ export class FlowerRenderer {
       const p2 = pts[len - 2];
       const p3 = pts[len - 1];
 
-      // Step along spline
+      // Smooth step along spline
       const steps = Math.max(3, Math.min(10, Math.floor(segmentDist / 4)));
       for (let s = 1; s <= steps; s++) {
         const t = s / steps;
@@ -175,7 +201,7 @@ export class FlowerRenderer {
           stroke.totalDistance += stepDist;
           stroke.lastSpawnDist += stepDist;
 
-          // Tangent angle along spline
+          // Tangent angle along spline curve
           const tangentAngle = Math.atan2(interp.y - lastSmooth.y, interp.x - lastSmooth.x);
           const currentVel = { speed, direction: tangentAngle };
 
@@ -193,45 +219,58 @@ export class FlowerRenderer {
   processElementSpawning(stroke, point, velocity, now) {
     if (this.mode === 'flower') {
       const speed = velocity.speed || 0;
-      // Dynamic spacing: slower stroke = denser large daisies; faster stroke = spaced buds & flowing tendrils
-      const spawnInterval = Math.max(22, Math.min(52, 20 + speed * 0.035)) * this.brushScale;
+      // Natural spacing: prevents clutter and unnatural overlapping
+      // Slower strokes allow rich hero blooms, faster strokes space out dynamically
+      const spawnInterval = Math.max(34, Math.min(70, 32 + speed * 0.04)) * this.brushScale;
 
       if (stroke.lastSpawnDist >= spawnInterval) {
         stroke.lastSpawnDist = 0;
 
-        // 1. Organic foliage & tendrils base
+        // 1. Check distance to nearest existing flower on this stroke to guarantee natural placement
+        let tooClose = false;
+        const minFlowerDist = 38 * this.brushScale;
+        for (let i = stroke.flowers.length - 1; i >= Math.max(0, stroke.flowers.length - 3); i--) {
+          const fl = stroke.flowers[i];
+          if (Math.hypot(point.x - fl.x, point.y - fl.y) < minFlowerDist) {
+            tooClose = true;
+            break;
+          }
+        }
+
         const side = Math.random() > 0.5 ? 1 : -1;
+
+        // 2. Spawn foliage leaf flanking the stem
         this.spawnLeaf(stroke, point, velocity, side, now);
-
-        if (Math.random() < 0.6) {
-          this.spawnLeaf(stroke, point, velocity, -side, now + 40);
+        if (Math.random() < 0.45) {
+          this.spawnTendril(stroke, point, velocity, -side, now);
         }
 
-        if (Math.random() < 0.4) {
-          this.spawnTendril(stroke, point, velocity, side, now);
-        }
-
-        // 2. Spawn Daisy or Daisy Bud
-        const isBud = Math.random() < Math.min(0.35, speed / 700);
-        if (isBud) {
-          this.spawnBud(stroke, point, velocity, now);
+        // 3. Spawn Daisy or Young Bud
+        if (!tooClose) {
+          const isBud = Math.random() < Math.min(0.3, speed / 800);
+          if (isBud) {
+            this.spawnBud(stroke, point, velocity, now);
+          } else {
+            this.spawnFlower(stroke, point, velocity, 1.0, now);
+          }
         } else {
-          this.spawnFlower(stroke, point, velocity, 1.0, now);
+          // If flowers are close, spawn a delicate bud or accent leaf instead
+          this.spawnBud(stroke, point, velocity, now);
         }
 
-        // 3. Ambient drifting petals & golden pollen
-        if (Math.random() < 0.5) {
-          this.spawnFloatingPetal(point, velocity, stroke.palette);
+        // 4. Ambient drifting white petals & golden pollen
+        if (Math.random() < 0.4) {
+          this.spawnFloatingPetal(point, velocity);
         }
-        if (Math.random() < 0.35) {
+        if (Math.random() < 0.3) {
           this.spawnPollenDust(point, velocity);
         }
       }
     } else if (this.mode === 'vine') {
-      if (stroke.lastSpawnDist >= 22 * this.brushScale) {
+      if (stroke.lastSpawnDist >= 26 * this.brushScale) {
         stroke.lastSpawnDist = 0;
         this.spawnLeaf(stroke, point, velocity, Math.random() > 0.5 ? 1 : -1, now);
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.4) {
           this.spawnTendril(stroke, point, velocity, Math.random() > 0.5 ? 1 : -1, now);
         }
       }
@@ -248,131 +287,69 @@ export class FlowerRenderer {
     return stroke;
   }
 
-  // --- Procedural Generation of Botanical Elements (White Daisy Model) ---
+  // --- Spawning Photorealistic Daisy Elements ---
 
   spawnFlower(stroke, point, velocity, sizeMultiplier = 1.0, now = performance.now()) {
     const speed = velocity.speed || 0;
-    // Slower stroke produces large, full radiant daisies
-    const baseSize = Math.max(26, 54 - speed * 0.035) * this.brushScale * sizeMultiplier * (0.92 + Math.random() * 0.22);
-    const flowerTheme = stroke.palette.flowers[0] || stroke.palette.flowers[Math.floor(Math.random() * stroke.palette.flowers.length)];
-
-    // Exact White Daisy anatomy: 24 to 28 slender ray petals radiating in 2 overlapping concentric tiers
-    const petalCount = 24 + Math.floor(Math.random() * 6);
-    const angleOffset = Math.random() * Math.PI * 2;
-    const tier1Petals = []; // Bottom tier (under-petals with slight shadow)
-    const tier2Petals = []; // Top tier (overlapping surface petals)
-
-    const centerRadius = baseSize * 0.34; // Large golden disc floret center (~34% of diameter)
-
-    for (let i = 0; i < petalCount; i++) {
-      const angle = angleOffset + (i * Math.PI * 2) / petalCount + (Math.random() - 0.5) * 0.06;
-      const petalLength = baseSize * (0.92 + Math.random() * 0.16);
-      const petalWidth = baseSize * (0.22 + Math.random() * 0.05);
-      const isTopTier = (i % 2 === 1);
-
-      const petalData = {
-        angle,
-        length: petalLength,
-        width: petalWidth,
-        tipRoundness: 0.85 + Math.random() * 0.15,
-        grooveOffset: (Math.random() - 0.5) * 0.1
-      };
-
-      if (isTopTier) {
-        tier2Petals.push(petalData);
-      } else {
-        tier1Petals.push(petalData);
-      }
-    }
-
-    // Generate textured phyllotaxis stipple dots for center golden disc
-    const stipplePoints = [];
-    const numStipples = 60;
-    const goldenAngle = 2.39996; // 137.5 degrees in radians
-    for (let j = 1; j <= numStipples; j++) {
-      const r = centerRadius * Math.sqrt(j / numStipples) * 0.92;
-      const theta = j * goldenAngle + angleOffset;
-      stipplePoints.push({
-        x: Math.cos(theta) * r,
-        y: Math.sin(theta) * r,
-        size: (0.9 + Math.random() * 1.2) * this.brushScale,
-        isHighlight: Math.random() > 0.45
-      });
-    }
-
-    // Optional natural dewdrop on petal
-    const hasDewdrop = Math.random() < 0.4;
-    let dewdrop = null;
-    if (hasDewdrop) {
-      const dAngle = angleOffset + Math.random() * Math.PI * 2;
-      const dDist = baseSize * (0.45 + Math.random() * 0.35);
-      dewdrop = {
-        x: Math.cos(dAngle) * dDist,
-        y: Math.sin(dAngle) * dDist,
-        radius: (1.6 + Math.random() * 2.0) * this.brushScale
-      };
-    }
+    // Slower hand motion = larger blooming daisy; fast motion = smaller accent blossom
+    const baseSize = Math.max(36, 72 - speed * 0.038) * this.brushScale * sizeMultiplier * (0.92 + Math.random() * 0.18);
+    
+    // Select between photographic daisy variants for natural diversity
+    const variant = Math.random() > 0.5 ? 'daisy1' : 'daisy2';
+    
+    // Natural angle: tangent direction plus subtle organic tilt
+    const baseAngle = (velocity.direction || 0) + (Math.random() - 0.5) * 0.6;
+    const randomSpin = Math.random() * Math.PI * 2; // Daisies are radially symmetrical with natural variation
 
     stroke.flowers.push({
       x: point.x,
       y: point.y,
       baseSize,
-      theme: flowerTheme,
-      tier1Petals,
-      tier2Petals,
-      centerRadius,
-      stipplePoints,
-      rotation: angleOffset,
+      variant,
+      rotation: randomSpin,
       birthTime: now,
-      bloomDuration: 380 + Math.random() * 100, // 380-480ms smooth blossoming
-      dewdrop
+      bloomDuration: 340 + Math.random() * 90 // Smooth 340ms blossoming
     });
   }
 
   spawnBud(stroke, point, velocity, now = performance.now()) {
     const side = Math.random() > 0.5 ? 1 : -1;
-    const angle = (velocity.direction || 0) + side * (0.75 + Math.random() * 0.5);
+    const angle = (velocity.direction || 0) + side * (0.7 + Math.random() * 0.45);
     const dist = (14 + Math.random() * 18) * this.brushScale;
     const budX = point.x + Math.cos(angle) * dist;
     const budY = point.y + Math.sin(angle) * dist;
-
-    const flowerTheme = stroke.palette.flowers[0];
 
     stroke.buds.push({
       x: budX,
       y: budY,
       stemFrom: { x: point.x, y: point.y },
-      baseSize: (11 + Math.random() * 9) * this.brushScale,
-      theme: flowerTheme,
-      angle: angle,
+      baseSize: (18 + Math.random() * 12) * this.brushScale,
+      angle: angle + Math.PI / 2,
       birthTime: now,
-      bloomDuration: 280 + Math.random() * 80
+      bloomDuration: 280 + Math.random() * 70
     });
   }
 
   spawnLeaf(stroke, point, velocity, sideDirection = 1, now = performance.now()) {
     const dir = velocity.direction || 0;
-    const leafAngle = dir + sideDirection * (0.65 + Math.random() * 0.55);
-    const length = (18 + Math.random() * 24) * this.brushScale;
-    const width = length * (0.40 + Math.random() * 0.16);
+    const leafAngle = dir + sideDirection * (0.65 + Math.random() * 0.5);
+    const size = (24 + Math.random() * 26) * this.brushScale;
 
     stroke.leaves.push({
       x: point.x,
       y: point.y,
-      angle: leafAngle,
-      length,
-      width,
+      angle: leafAngle - Math.PI / 2,
+      size,
       sideDirection,
-      curve: sideDirection * (0.16 + Math.random() * 0.22),
       birthTime: now,
-      bloomDuration: 300 + Math.random() * 100
+      bloomDuration: 280 + Math.random() * 80
     });
   }
 
   spawnTendril(stroke, point, velocity, sideDirection = 1, now = performance.now()) {
     const dir = velocity.direction || 0;
     const tendrilAngle = dir + sideDirection * (0.8 + Math.random() * 0.6);
-    const length = (20 + Math.random() * 28) * this.brushScale;
+    const length = (20 + Math.random() * 26) * this.brushScale;
 
     stroke.tendrils.push({
       x: point.x,
@@ -380,13 +357,13 @@ export class FlowerRenderer {
       angle: tendrilAngle,
       length,
       sideDirection,
-      coils: 1.5 + Math.random() * 1.5,
+      coils: 1.4 + Math.random() * 1.2,
       birthTime: now,
-      bloomDuration: 350 + Math.random() * 100
+      bloomDuration: 320 + Math.random() * 80
     });
   }
 
-  spawnFloatingPetal(point, velocity, palette) {
+  spawnFloatingPetal(point, velocity) {
     if (this.particles.length >= this.maxParticles) return;
 
     const speed = Math.min(velocity.speed || 60, 450);
@@ -398,7 +375,7 @@ export class FlowerRenderer {
       y: point.y + (Math.random() - 0.5) * 16,
       vx: Math.cos(driftAngle) * (speed * 0.08 + 1.2) + (Math.random() - 0.5) * 1.2,
       vy: Math.sin(driftAngle) * (speed * 0.08) + Math.random() * 1.4 + 0.6,
-      size: (8 + Math.random() * 10) * this.brushScale,
+      size: (12 + Math.random() * 14) * this.brushScale,
       angle: Math.random() * Math.PI * 2,
       vAngle: (Math.random() - 0.5) * 0.08,
       flip: Math.random() * Math.PI,
@@ -422,8 +399,6 @@ export class FlowerRenderer {
       vx: Math.cos(angle) * (speed * 0.04 + 0.8),
       vy: Math.sin(angle) * (speed * 0.04 + 0.8) - 0.4,
       size: (1.5 + Math.random() * 2.5) * this.brushScale,
-      angle: 0,
-      vAngle: 0,
       opacity: 1.0,
       color: 'rgba(254, 240, 138, 0.95)',
       life: 1.0,
@@ -431,24 +406,24 @@ export class FlowerRenderer {
     });
   }
 
-  // --- Physics Simulation ---
+  // --- Physics Particle Simulation ---
 
   updateParticles() {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.angle += p.vAngle;
 
       if (p.type === 'petal') {
+        p.angle += p.vAngle;
         p.flip += p.vFlip;
         p.vx *= 0.965;
         p.vy = p.vy * 0.965 + 0.045; // Gentle gravity
         p.vAngle *= 0.985;
       } else {
-        // Pollen floating air turbulence
+        // Pollen floating turbulence
         p.vx += (Math.random() - 0.5) * 0.15;
-        p.vy -= 0.015; // Floats upwards slightly
+        p.vy -= 0.015;
         p.vx *= 0.95;
         p.vy *= 0.95;
       }
@@ -462,13 +437,13 @@ export class FlowerRenderer {
     }
   }
 
-  // --- Rendering Loop ---
+  // --- Main Rendering Pipeline ---
 
   render() {
     const now = performance.now();
     this.updateParticles();
 
-    // Check finished blooming strokes to bake into permanent buffer
+    // Check finished blooming strokes to bake onto permanent buffer
     for (const stroke of this.bloomingStrokes) {
       let allBloomed = true;
       for (const fl of stroke.flowers) {
@@ -487,7 +462,7 @@ export class FlowerRenderer {
       }
 
       if (allBloomed) {
-        // Bake completed stroke permanently onto buffer canvas
+        // Bake stroke permanently into crisp buffer
         this.renderStrokeToBuffer(stroke, now);
         this.bloomingStrokes.delete(stroke);
       }
@@ -497,7 +472,7 @@ export class FlowerRenderer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(this.bufferCanvas, 0, 0);
 
-    // 2. Render completed strokes that are still blooming
+    // 2. Render completed strokes still in blooming transition
     for (const stroke of this.bloomingStrokes) {
       this.drawStroke(this.ctx, stroke, now);
     }
@@ -528,17 +503,17 @@ export class FlowerRenderer {
     // 1. Organic Backbone Vine Stem
     this.drawStem(ctx, stroke);
 
-    // 2. Delicate Curling Tendrils
+    // 2. Curling Tendrils
     this.drawTendrils(ctx, stroke, now);
 
-    // 3. Buds & Accent Stems
-    this.drawBuds(ctx, stroke, now);
-
-    // 4. Lush Shaded Foliage Leaves
+    // 3. Leaves with Transparent PNG Asset & Shading
     this.drawLeaves(ctx, stroke, now);
 
-    // 5. White Daisies with Radiant Multi-Tiered Petals & Golden Textured Disc Core
-    this.drawBotanicalFlowers(ctx, stroke, now);
+    // 4. Daisy Buds
+    this.drawBuds(ctx, stroke, now);
+
+    // 5. Photorealistic White Daisies with Alpha Blending & Drop Shadows
+    this.drawPhotorealisticDaisies(ctx, stroke, now);
 
     ctx.restore();
   }
@@ -569,7 +544,7 @@ export class FlowerRenderer {
     if (pts.length < 2) return;
 
     ctx.save();
-    ctx.strokeStyle = stroke.palette.stemColor;
+    ctx.strokeStyle = stroke.palette.stemColor || 'rgba(46, 125, 50, 0.9)';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = 'rgba(10, 35, 18, 0.35)';
@@ -593,7 +568,7 @@ export class FlowerRenderer {
     if (!stroke.tendrils) return;
 
     ctx.save();
-    ctx.strokeStyle = stroke.palette.stemColor;
+    ctx.strokeStyle = stroke.palette.stemColor || 'rgba(46, 125, 50, 0.9)';
     ctx.lineCap = 'round';
 
     for (const t of stroke.tendrils) {
@@ -628,9 +603,7 @@ export class FlowerRenderer {
   }
 
   drawLeaves(ctx, stroke, now) {
-    ctx.save();
-    const leafHighlight = stroke.palette.leafHighlight || 'rgba(129, 199, 132, 0.88)';
-    const leafShadow = stroke.palette.leafShadow || 'rgba(27, 94, 32, 0.95)';
+    const leafImg = this.images.leaf;
 
     for (const leaf of stroke.leaves) {
       const elapsed = now - leaf.birthTime;
@@ -638,67 +611,36 @@ export class FlowerRenderer {
       const bloom = easeOutBack(progress);
       if (bloom <= 0.02) continue;
 
-      const currentLen = leaf.length * bloom;
-      const currentWidth = leaf.width * bloom;
+      const currentSize = leaf.size * bloom;
 
       ctx.save();
       ctx.translate(leaf.x, leaf.y);
-      ctx.rotate(leaf.angle + (1 - Math.min(1, progress)) * 0.25 * leaf.sideDirection);
+      ctx.rotate(leaf.angle);
 
-      // 3D shaded leaf gradient with natural sunlight
-      const grad = ctx.createLinearGradient(0, -currentWidth * 0.55, 0, currentWidth * 0.55);
-      grad.addColorStop(0, leafHighlight);
-      grad.addColorStop(0.48, stroke.palette.leafColor);
-      grad.addColorStop(1.0, leafShadow);
-
-      ctx.fillStyle = grad;
+      // Soft contact shadow behind foliage
       ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 5 * bloom;
+      ctx.shadowOffsetY = 2 * bloom;
 
-      // Realistic pointed daisy leaf
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.bezierCurveTo(
-        currentLen * 0.32, -currentWidth * 0.9,
-        currentLen * 0.72, -currentWidth * 0.6,
-        currentLen, 0
-      );
-      ctx.bezierCurveTo(
-        currentLen * 0.72, currentWidth * 0.6,
-        currentLen * 0.32, currentWidth * 0.9,
-        0, 0
-      );
-      ctx.fill();
-
-      // Central Midrib Spine
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1.1 * this.brushScale * bloom;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(currentLen * 0.5, leaf.curve * 6 * bloom, currentLen * 0.92, 0);
-      ctx.stroke();
-
-      // Lateral Rib Veins
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = 0.65 * this.brushScale * bloom;
-      for (let v = 0.22; v <= 0.75; v += 0.18) {
-        const vx = currentLen * v;
-        const ribLen = currentWidth * (0.45 - (v - 0.5) * 0.2);
+      if (leafImg && leafImg.loaded) {
+        // High-Quality Photographic Daisy Leaf PNG
+        ctx.drawImage(leafImg, -currentSize * 0.45, -currentSize * 0.85, currentSize, currentSize);
+      } else {
+        // Procedural organic leaf fallback
+        ctx.fillStyle = stroke.palette.leafColor || 'rgba(56, 142, 60, 0.92)';
         ctx.beginPath();
-        ctx.moveTo(vx, 0);
-        ctx.lineTo(vx + currentLen * 0.14, -ribLen);
-        ctx.moveTo(vx, 0);
-        ctx.lineTo(vx + currentLen * 0.14, ribLen);
-        ctx.stroke();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(currentSize * 0.3, -currentSize * 0.4, currentSize * 0.7, -currentSize * 0.3, currentSize, 0);
+        ctx.bezierCurveTo(currentSize * 0.7, currentSize * 0.3, currentSize * 0.3, currentSize * 0.4, 0, 0);
+        ctx.fill();
       }
 
       ctx.restore();
     }
-    ctx.restore();
   }
 
   drawBuds(ctx, stroke, now) {
-    if (!stroke.buds) return;
+    const budImg = this.images.bud;
 
     for (const bud of stroke.buds) {
       const elapsed = now - bud.birthTime;
@@ -711,7 +653,7 @@ export class FlowerRenderer {
       ctx.save();
       // Stem leading to bud
       if (bud.stemFrom) {
-        ctx.strokeStyle = stroke.palette.stemColor;
+        ctx.strokeStyle = stroke.palette.stemColor || 'rgba(46, 125, 50, 0.9)';
         ctx.lineWidth = 2.0 * this.brushScale;
         ctx.beginPath();
         ctx.moveTo(bud.stemFrom.x, bud.stemFrom.y);
@@ -722,237 +664,90 @@ export class FlowerRenderer {
       ctx.translate(bud.x, bud.y);
       ctx.rotate(bud.angle);
 
-      // Green Calyx Base Sepals
-      ctx.fillStyle = stroke.palette.leafColor;
-      ctx.beginPath();
-      ctx.moveTo(-currentSize * 0.45, 0);
-      ctx.lineTo(0, -currentSize * 0.35);
-      ctx.lineTo(currentSize * 0.45, 0);
-      ctx.closePath();
-      ctx.fill();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      ctx.shadowBlur = 4 * bloom;
 
-      // Daisy Bud: emerging crisp white petal tips & golden core
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      ctx.shadowBlur = 4;
-
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.bezierCurveTo(
-        currentSize * 0.4, -currentSize * 0.6,
-        currentSize * 0.85, -currentSize * 0.35,
-        currentSize, 0
-      );
-      ctx.bezierCurveTo(
-        currentSize * 0.85, currentSize * 0.35,
-        currentSize * 0.4, currentSize * 0.6,
-        0, 0
-      );
-      ctx.fill();
-
-      // Peek of golden yellow center
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.95)';
-      ctx.beginPath();
-      ctx.arc(currentSize * 0.35, 0, currentSize * 0.2, 0, Math.PI * 2);
-      ctx.fill();
+      if (budImg && budImg.loaded) {
+        ctx.drawImage(budImg, -currentSize * 0.5, -currentSize * 0.5, currentSize, currentSize);
+      } else {
+        // Procedural bud fallback
+        ctx.fillStyle = stroke.palette.leafColor || 'rgba(56, 142, 60, 0.92)';
+        ctx.beginPath();
+        ctx.arc(0, 0, currentSize * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(currentSize * 0.2, 0, currentSize * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       ctx.restore();
     }
   }
 
-  drawBotanicalFlowers(ctx, stroke, now) {
+  drawPhotorealisticDaisies(ctx, stroke, now) {
     for (const fl of stroke.flowers) {
       const elapsed = now - fl.birthTime;
       const progress = Math.min(1.0, Math.max(0, elapsed / fl.bloomDuration));
       const bloom = easeOutBack(progress);
       if (bloom <= 0.02) continue;
 
+      const currentSize = fl.baseSize * bloom;
+      const img = (fl.variant === 'daisy2' ? this.images.daisy2 : this.images.daisy1);
+
       ctx.save();
       ctx.translate(fl.x, fl.y);
-      // Organic rotational bloom
       ctx.rotate(fl.rotation + (1 - Math.min(1, progress)) * 0.25);
 
-      const currentCenterRadius = fl.centerRadius * bloom;
-
-      // 1. Soft atmospheric drop shadow under the daisy
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      // Realistic soft botanical drop shadow under bloom
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
       ctx.shadowBlur = 8 * bloom;
+      ctx.shadowOffsetY = 3 * bloom;
 
-      // 2. LAYER 1: Bottom Tier Ray Petals (Under-petals with depth shadow)
-      if (fl.tier1Petals) {
-        for (const petal of fl.tier1Petals) {
-          this.drawSingleDaisyPetal(ctx, petal, bloom, true, fl.theme);
-        }
-      }
-
-      // 3. LAYER 2: Top Tier Ray Petals (Overlapping crisp white surface petals)
-      if (fl.tier2Petals) {
-        for (const petal of fl.tier2Petals) {
-          this.drawSingleDaisyPetal(ctx, petal, bloom, false, fl.theme);
-        }
-      }
-
-      // 4. LAYER 3: Golden-Yellow Disc Core (Fibonacci textured dome center)
-      this.drawDaisyCenterDisc(ctx, fl, currentCenterRadius, bloom);
-
-      // 5. Realistic Glassy Dewdrop on Petal
-      if (fl.dewdrop && bloom > 0.6) {
-        const d = fl.dewdrop;
-        const dRadius = d.radius * bloom;
-
-        ctx.save();
-        // Drop shadow under drop
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-        ctx.beginPath();
-        ctx.arc(d.x + 0.8, d.y + 0.8, dRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Water droplet lens gradient
-        const dropGrad = ctx.createRadialGradient(d.x - dRadius * 0.3, d.y - dRadius * 0.3, 0.5, d.x, d.y, dRadius);
-        dropGrad.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
-        dropGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
-        dropGrad.addColorStop(1.0, 'rgba(100, 100, 150, 0.2)');
-
-        ctx.fillStyle = dropGrad;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, dRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // White specular glint
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-        ctx.beginPath();
-        ctx.arc(d.x - dRadius * 0.35, d.y - dRadius * 0.35, dRadius * 0.32, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+      if (img && img.loaded) {
+        // Alpha Blending of High-Resolution Photographic Daisy PNG
+        ctx.globalAlpha = Math.min(1.0, progress * 1.5);
+        ctx.drawImage(img, -currentSize / 2, -currentSize / 2, currentSize, currentSize);
+      } else {
+        // Fallback procedural daisy if image is still fetching
+        this.drawProceduralDaisyFallback(ctx, currentSize, bloom);
       }
 
       ctx.restore();
     }
   }
 
-  drawSingleDaisyPetal(ctx, petal, bloom, isBottomTier, theme) {
-    ctx.save();
-    ctx.rotate(petal.angle);
+  drawProceduralDaisyFallback(ctx, size, bloom) {
+    const r = size * 0.45;
+    const centerR = r * 0.35;
+    const petals = 24;
 
-    const pLen = petal.length * bloom;
-    const pWidth = petal.width * bloom;
-
-    // Multi-stop radial/linear gradient along petal:
-    // Warm golden-ivory base near disc -> Crisp pure white body -> Translucent edge
-    const grad = ctx.createLinearGradient(0, 0, pLen, 0);
-    if (isBottomTier) {
-      grad.addColorStop(0, theme.petalBase || 'rgba(254, 240, 138, 0.5)');
-      grad.addColorStop(0.2, theme.secondary || 'rgba(241, 245, 249, 0.96)');
-      grad.addColorStop(0.7, theme.primary || 'rgba(255, 255, 255, 0.98)');
-      grad.addColorStop(1.0, theme.petalShadow || 'rgba(203, 213, 225, 0.7)');
-    } else {
-      grad.addColorStop(0, theme.petalBase || 'rgba(254, 240, 138, 0.45)');
-      grad.addColorStop(0.18, theme.secondary || 'rgba(248, 250, 252, 0.98)');
-      grad.addColorStop(0.65, theme.primary || 'rgba(255, 255, 255, 0.99)');
-      grad.addColorStop(1.0, theme.primary || 'rgba(255, 255, 255, 0.99)');
+    // Petals
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < petals; i++) {
+      const a = (i * Math.PI * 2) / petals;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.ellipse(r * 0.65, 0, r * 0.35, r * 0.09, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
+    // Golden Eye
+    const grad = ctx.createRadialGradient(0, 0, centerR * 0.1, 0, 0, centerR);
+    grad.addColorStop(0, '#fde047');
+    grad.addColorStop(0.7, '#f59e0b');
+    grad.addColorStop(1.0, '#b45309');
     ctx.fillStyle = grad;
-
-    // Slender oval petal with subtle notched 3-lobed tip matching reference
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    // Top side curve
-    ctx.bezierCurveTo(
-      pLen * 0.28, -pWidth * 0.7,
-      pLen * 0.75, -pWidth * 0.55,
-      pLen, 0
-    );
-    // Bottom side curve
-    ctx.bezierCurveTo(
-      pLen * 0.75, pWidth * 0.55,
-      pLen * 0.28, pWidth * 0.7,
-      0, 0
-    );
+    ctx.arc(0, 0, centerR, 0, Math.PI * 2);
     ctx.fill();
-
-    // Longitudinal Ridges / Furrows (characteristic of real daisy petals)
-    const grooveColor = isBottomTier
-      ? (theme.petalShadow || 'rgba(203, 213, 225, 0.45)')
-      : (theme.petalGroove || 'rgba(226, 232, 240, 0.6)');
-    
-    ctx.strokeStyle = grooveColor;
-    ctx.lineWidth = 0.75 * this.brushScale * bloom;
-
-    // Central longitudinal ridge
-    ctx.beginPath();
-    ctx.moveTo(pLen * 0.15, 0);
-    ctx.lineTo(pLen * 0.88, 0);
-    ctx.stroke();
-
-    // Side delicate ridge
-    ctx.lineWidth = 0.5 * this.brushScale * bloom;
-    ctx.beginPath();
-    ctx.moveTo(pLen * 0.22, -pWidth * 0.18);
-    ctx.lineTo(pLen * 0.82, -pWidth * 0.1);
-    ctx.moveTo(pLen * 0.22, pWidth * 0.18);
-    ctx.lineTo(pLen * 0.82, pWidth * 0.1);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  drawDaisyCenterDisc(ctx, fl, centerRadius, bloom) {
-    ctx.save();
-
-    // 1. Soft contact shadow around center rim
-    const rimGrad = ctx.createRadialGradient(0, 0, centerRadius * 0.65, 0, 0, centerRadius * 1.08);
-    rimGrad.addColorStop(0, 'rgba(217, 119, 6, 0)');
-    rimGrad.addColorStop(0.85, 'rgba(180, 83, 9, 0.55)');
-    rimGrad.addColorStop(1.0, 'rgba(146, 64, 14, 0.8)');
-
-    ctx.fillStyle = rimGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, centerRadius * 1.05, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 2. Main Golden Yellow Dome Base Gradient
-    const domeGrad = ctx.createRadialGradient(
-      -centerRadius * 0.2, -centerRadius * 0.2, centerRadius * 0.1,
-      0, 0, centerRadius
-    );
-    domeGrad.addColorStop(0, fl.theme.centerHighlight || '#fde047');
-    domeGrad.addColorStop(0.45, fl.theme.center || '#f59e0b');
-    domeGrad.addColorStop(0.88, fl.theme.throat || '#d97706');
-    domeGrad.addColorStop(1.0, '#b45309');
-
-    ctx.fillStyle = domeGrad;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-    ctx.shadowBlur = 5 * bloom;
-
-    ctx.beginPath();
-    ctx.arc(0, 0, centerRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 3. Stipple granular disc florets (Fibonacci spiral texture matching real daisy eye)
-    if (fl.stipplePoints && bloom > 0.4) {
-      for (const pt of fl.stipplePoints) {
-        ctx.fillStyle = pt.isHighlight
-          ? (fl.theme.stippleLight || 'rgba(254, 249, 195, 0.95)')
-          : (fl.theme.stippleDark || 'rgba(180, 83, 9, 0.8)');
-
-        ctx.beginPath();
-        ctx.arc(pt.x * bloom, pt.y * bloom, pt.size * bloom, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // 4. Subtle central crown ring depression
-    ctx.strokeStyle = 'rgba(180, 83, 9, 0.4)';
-    ctx.lineWidth = 1.0 * this.brushScale * bloom;
-    ctx.beginPath();
-    ctx.arc(0, 0, centerRadius * 0.55, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.restore();
   }
 
   renderParticles(ctx) {
+    const petalImg = this.images.petal;
+
     for (const p of this.particles) {
       ctx.save();
       ctx.translate(p.x, p.y);
@@ -960,24 +755,20 @@ export class FlowerRenderer {
       ctx.globalAlpha = p.opacity;
 
       if (p.type === 'petal') {
-        // Tumbling 3D flutter effect using cosine flip
+        // 3D aerodynamic flip flutter
         ctx.scale(Math.cos(p.flip), 1.0);
 
-        // White daisy petal gradient
-        const grad = ctx.createLinearGradient(0, -p.size * 0.35, p.size, p.size * 0.35);
-        grad.addColorStop(0, 'rgba(254, 240, 138, 0.5)');
-        grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.98)');
-        grad.addColorStop(1.0, 'rgba(241, 245, 249, 0.95)');
-
-        ctx.fillStyle = grad;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
         ctx.shadowBlur = 4;
 
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(p.size * 0.35, -p.size * 0.5, p.size * 0.8, -p.size * 0.35, p.size, 0);
-        ctx.bezierCurveTo(p.size * 0.8, p.size * 0.35, p.size * 0.35, p.size * 0.5, 0, 0);
-        ctx.fill();
+        if (petalImg && petalImg.loaded) {
+          ctx.drawImage(petalImg, -p.size * 0.4, -p.size * 0.8, p.size * 0.8, p.size * 1.6);
+        } else {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.size * 0.3, p.size * 0.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
       } else if (p.type === 'pollen') {
         // Golden pollen speck
         ctx.fillStyle = p.color;
