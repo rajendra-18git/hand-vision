@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        color: #ffffff;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .product-stage {
+        position: relative;
+        width: 1680px;
+        height: 940px;
+        perspective: 1600px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .app-window-frame {
+        position: relative;
+        width: 1560px;
+        height: 880px;
+        background: rgba(10, 14, 24, 0.94);
+        backdrop-filter: blur(30px);
+        border: 1.5px solid rgba(255, 255, 255, 0.18);
+        border-radius: 24px;
+        box-shadow: 
+          0 40px 100px rgba(0, 0, 0, 0.8),
+          0 0 80px rgba(255, 94, 152, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transform-style: preserve-3d;
+      }
+      .window-titlebar {
+        height: 54px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+      }
+      .window-dots {
+        display: flex;
+        gap: 8px;
+      }
+      .window-dot {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+      }
+      .dot-red { background: #ff5f56; }
+      .dot-yellow { background: #ffbd2e; }
+      .dot-green { background: #27c93f; }
+      .window-url-bar {
+        padding: 6px 20px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .live-pulse-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 14px;
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #34d399;
+      }
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        background: #34d399;
+        border-radius: 50%;
+        box-shadow: 0 0 10px #34d399;
+      }
+      .app-viewport {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        background: #090c15;
+        overflow: hidden;
+      }
+      .camera-feed-sim {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at 50% 60%, rgba(26, 32, 54, 0.8) 0%, #060911 80%);
+      }
+      .app-hud-top {
+        position: absolute;
+        top: 20px;
+        left: 24px;
+        right: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 10;
+      }
+      .app-brand-badge {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      .app-brand-icon {
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(135deg, #ff5e98, #ff85b3);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+      .app-brand-name {
+        font-family: 'Outfit', sans-serif;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+      }
+      .app-telemetry-hud {
+        display: flex;
+        gap: 12px;
+      }
+      .hud-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #e2e8f0;
+      }
+      .hud-pill.active-pill {
+        border-color: rgba(0, 242, 254, 0.4);
+        color: #00f2fe;
+      }
+      .app-gesture-guide {
+        position: absolute;
+        top: 96px;
+        left: 24px;
+        width: 250px;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .guide-header {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #94a3b8;
+        margin-bottom: 2px;
+      }
+      .guide-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 600;
+        color: #cbd5e1;
+      }
+      .guide-tag {
+        padding: 3px 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #ff85b3;
+      }
+      .canvas-viewport-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 5;
+      }
+      .app-dock {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 72px;
+        padding: 0 16px;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(25px);
+        border: 1.5px solid rgba(255, 255, 255, 0.18);
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        z-index: 10;
+      }
+      .dock-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #e2e8f0;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .dock-item.active {
+        background: linear-gradient(135deg, rgba(255, 94, 152, 0.25), rgba(0, 242, 254, 0.25));
+        border-color: rgba(255, 255, 255, 0.3);
+        color: #ffffff;
+      }
+      .swatch-circle {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ffb7c5, #ff69b4);
+        box-shadow: 0 0 10px #ff69b4;
+      }
+      .dock-divider-v {
+        width: 1px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .dock-icon-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+      }
+      .dock-icon-btn.active-icon {
+        color: #00f2fe;
+        background: rgba(0, 242, 254, 0.12);
+        border-color: rgba(0, 242, 254, 0.3);
+      }
+      .ui-callout-bubble {
+        position: absolute;
+        padding: 10px 18px;
+        background: rgba(255, 94, 152, 0.95);
+        color: white;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 800;
+        box-shadow: 0 10px 30px rgba(255, 94, 152, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 30;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-by9e" id="root" data-composition-id="scene-2" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-thhi" class="product-stage" id="product-stage">
+        <div data-hf-id="hf-q1di" class="app-window-frame" id="app-window">
+          <!-- Window Titlebar -->
+          <div data-hf-id="hf-jefu" class="window-titlebar" id="window-titlebar">
+            <div data-hf-id="hf-hvbh" class="window-dots">
+              <div data-hf-id="hf-w7f5" class="window-dot dot-red"></div>
+              <div data-hf-id="hf-xc18" class="window-dot dot-yellow"></div>
+              <div data-hf-id="hf-5asd" class="window-dot dot-green"></div>
+            </div>
+
+            <div data-hf-id="hf-yk6a" class="window-url-bar" id="window-url-bar">
+              <span data-hf-id="hf-qv41" style="color: #10b981;">🔒</span>
+              <span data-hf-id="hf-rsrt">https://aurabloom.app</span>
+            </div>
+
+            <div data-hf-id="hf-uqow" class="live-pulse-badge" id="window-badge">
+              <span data-hf-id="hf-d399" class="live-dot"></span>
+              <span data-hf-id="hf-hkx9">VISION AI ACTIVE</span>
+            </div>
+          </div>
+
+          <!-- Inside Web App Viewport -->
+          <div data-hf-id="hf-eqxa" class="app-viewport" id="app-viewport">
+            <div data-hf-id="hf-r5jt" class="camera-feed-sim" id="camera-sim"></div>
+
+            <!-- Top Header HUD -->
+            <div data-hf-id="hf-m4pc" class="app-hud-top" id="app-hud-top">
+              <div data-hf-id="hf-9yuq" class="app-brand-badge" id="hud-brand-badge">
+                <div data-hf-id="hf-5ouh" class="app-brand-icon">
+                  <svg data-hf-id="hf-b3ry" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path data-hf-id="hf-puyq" d="M12 2v8" />
+                    <path data-hf-id="hf-qnp2" d="m4.93 10.93 1.41 1.41" />
+                    <path data-hf-id="hf-zduk" d="M2 18h2" />
+                    <path data-hf-id="hf-1ahm" d="M20 18h2" />
+                    <path data-hf-id="hf-h92y" d="m19.07 10.93-1.41 1.41" />
+                    <path data-hf-id="hf-l6m3" d="M22 22H2" />
+                    <path data-hf-id="hf-vznr" d="m16 6-4 4-4-4" />
+                    <path data-hf-id="hf-zjl5" d="M16 18a4 4 0 0 0-8 0" />
+                  </svg>
+                </div>
+                <span data-hf-id="hf-6nv0" class="app-brand-name">AuraBloom</span>
+              </div>
+
+              <div data-hf-id="hf-g4ha" class="app-telemetry-hud" id="hud-telemetry">
+                <div data-hf-id="hf-4g5q" class="hud-pill active-pill" id="pill-hand">
+                  <span data-hf-id="hf-weif">🟢 Hand Detected</span>
+                </div>
+                <div data-hf-id="hf-mjxk" class="hud-pill" id="pill-fps">
+                  <span data-hf-id="hf-ljd6">⚡ 60 FPS • 3.8ms Latency</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Left Gesture Guide Card -->
+            <div data-hf-id="hf-vu76" class="app-gesture-guide" id="app-gesture-guide">
+              <span data-hf-id="hf-1x4s" class="guide-header">Gesture Controls</span>
+              <div data-hf-id="hf-jwhr" class="guide-row">
+                <span data-hf-id="hf-0760">Point &amp; Move</span>
+                <span data-hf-id="hf-sbjk" class="guide-tag">Draw Floral Ink</span>
+              </div>
+              <div data-hf-id="hf-7f3z" class="guide-row">
+                <span data-hf-id="hf-vpv5">Thumbs Up</span>
+                <span data-hf-id="hf-of03" class="guide-tag">Clear Canvas</span>
+              </div>
+              <div data-hf-id="hf-70sy" class="guide-row">
+                <span data-hf-id="hf-trjy">Peace Sign</span>
+                <span data-hf-id="hf-uog5" class="guide-tag">Cycle Palette</span>
+              </div>
+            </div>
+
+            <!-- Live Animated Hand Skeleton & Generative Floral Canvas -->
+            <svg data-hf-id="hf-20nu" id="hand-canvas-svg" class="canvas-viewport-layer" viewBox="0 0 1560 826">
+              <defs data-hf-id="hf-mh0t">
+                <filter data-hf-id="hf-96t2" id="glow-cyan-f" x="-30%" y="-30%" width="160%" height="160%">
+                  <fegaussianblur data-hf-id="hf-q7a3" stdDeviation="6" result="blur" />
+                  <fecomposite data-hf-id="hf-xhb9" in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <filter data-hf-id="hf-b8s9" id="glow-pink-f" x="-30%" y="-30%" width="160%" height="160%">
+                  <fegaussianblur data-hf-id="hf-x4np" stdDeviation="8" result="blur" />
+                  <fecomposite data-hf-id="hf-5rg9" in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <lineargradient data-hf-id="hf-9c7w" id="sakura-stem" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop data-hf-id="hf-xpig" offset="0%" stop-color="#ff758c" />
+                  <stop data-hf-id="hf-s3ex" offset="50%" stop-color="#ff7eb3" />
+                  <stop data-hf-id="hf-4429" offset="100%" stop-color="#00f2fe" />
+                </lineargradient>
+              </defs>
+
+              <!-- Generative Botanical Flower Stroke -->
+              <g data-hf-id="hf-nybk" id="flower-strokes-group">
+                <path data-hf-id="hf-n3zq" id="flower-stem-path" d="M 450 520 Q 700 240 920 460 T 1280 300" fill="none" stroke="url(#sakura-stem)" stroke-width="14" stroke-linecap="round" opacity="0.95" filter="url(#glow-pink-f)" />
+                
+                <!-- Flower Bloom 1 -->
+                <g data-hf-id="hf-80p7" id="bloom-1" transform="translate(680, 310) scale(0)">
+                  <circle data-hf-id="hf-30mh" r="26" fill="#ff4d8d" opacity="0.9" />
+                  <path data-hf-id="hf-q76g" d="M 0 -40 C 20 -22 20 22 0 40 C -20 22 -20 -22 0 -40" fill="#ff85b3" opacity="0.9" transform="rotate(0)" />
+                  <path data-hf-id="hf-xepg" d="M 0 -40 C 20 -22 20 22 0 40 C -20 22 -20 -22 0 -40" fill="#ff85b3" opacity="0.9" transform="rotate(60)" />
+                  <path data-hf-id="hf-8vzp" d="M 0 -40 C 20 -22 20 22 0 40 C -20 22 -20 -22 0 -40" fill="#ff85b3" opacity="0.9" transform="rotate(120)" />
+                  <circle data-hf-id="hf-aphy" r="12" fill="#ffd166" />
+                </g>
+
+                <!-- Flower Bloom 2 -->
+                <g data-hf-id="hf-89mv" id="bloom-2" transform="translate(920, 460) scale(0)">
+                  <circle data-hf-id="hf-344t" r="30" fill="#00f2fe" opacity="0.9" />
+                  <path data-hf-id="hf-qpm4" d="M 0 -48 C 24 -26 24 26 0 48 C -24 26 -24 -26 0 -48" fill="#7000ff" opacity="0.85" transform="rotate(30)" />
+                  <path data-hf-id="hf-kaku" d="M 0 -48 C 24 -26 24 26 0 48 C -24 26 -24 -26 0 -48" fill="#7000ff" opacity="0.85" transform="rotate(90)" />
+                  <path data-hf-id="hf-h2gx" d="M 0 -48 C 24 -26 24 26 0 48 C -24 26 -24 -26 0 -48" fill="#7000ff" opacity="0.85" transform="rotate(150)" />
+                  <circle data-hf-id="hf-qvhb" r="14" fill="#ffffff" />
+                </g>
+
+                <!-- Flower Bloom 3 -->
+                <g data-hf-id="hf-mzjc" id="bloom-3" transform="translate(1220, 310) scale(0)">
+                  <circle data-hf-id="hf-fzue" r="34" fill="#ff5e98" opacity="0.95" />
+                  <path data-hf-id="hf-n0t3" d="M 0 -56 C 28 -30 28 30 0 56 C -28 30 -28 -30 0 -56" fill="#ffb7c5" opacity="0.95" transform="rotate(15)" />
+                  <path data-hf-id="hf-kwc5" d="M 0 -56 C 28 -30 28 30 0 56 C -28 30 -28 -30 0 -56" fill="#ffb7c5" opacity="0.95" transform="rotate(75)" />
+                  <path data-hf-id="hf-j862" d="M 0 -56 C 28 -30 28 30 0 56 C -28 30 -28 -30 0 -56" fill="#ffb7c5" opacity="0.95" transform="rotate(135)" />
+                  <circle data-hf-id="hf-zzr0" r="16" fill="#ffe066" />
+                </g>
+              </g>
+
+              <!-- Realistic Hand Skeleton with glowing neon lines and joints -->
+              <g data-hf-id="hf-5mwq" id="hand-skeleton-group">
+                <g data-hf-id="hf-tyxl" stroke="#00f2fe" stroke-width="4" opacity="0.9" stroke-linecap="round" filter="url(#glow-cyan-f)">
+                  <!-- Palm & Base -->
+                  <line data-hf-id="hf-kqyl" x1="450" y1="520" x2="410" y2="460" />
+                  <line data-hf-id="hf-r75u" x1="450" y1="520" x2="440" y2="420" />
+                  <line data-hf-id="hf-zsm3" x1="450" y1="520" x2="475" y2="425" />
+                  <line data-hf-id="hf-ss3k" x1="450" y1="520" x2="505" y2="440" />
+                  <line data-hf-id="hf-i11b" x1="450" y1="520" x2="530" y2="465" />
+
+                  <!-- Index Finger (Drawing Pointer) -->
+                  <line data-hf-id="hf-vzbb" x1="440" y1="420" x2="435" y2="360" />
+                  <line data-hf-id="hf-0xy9" x1="435" y1="360" x2="430" y2="300" />
+                  <line data-hf-id="hf-g2sp" x1="430" y1="300" x2="425" y2="240" stroke="#ff4b8b" stroke-width="6" />
+
+                  <!-- Thumb -->
+                  <line data-hf-id="hf-ycjy" x1="410" y1="460" x2="380" y2="420" />
+                  <line data-hf-id="hf-1qae" x1="380" y1="420" x2="360" y2="390" />
+
+                  <!-- Middle Finger -->
+                  <line data-hf-id="hf-z2j6" x1="475" y1="425" x2="480" y2="375" />
+                  <line data-hf-id="hf-nuaa" x1="480" y1="375" x2="485" y2="330" />
+
+                  <!-- Ring Finger -->
+                  <line data-hf-id="hf-vyxz" x1="505" y1="440" x2="515" y2="400" />
+
+                  <!-- Pinky -->
+                  <line data-hf-id="hf-lmjo" x1="530" y1="465" x2="545" y2="430" />
+                </g>
+
+                <g data-hf-id="hf-7tay" fill="#ffffff">
+                  <circle data-hf-id="hf-yen7" cx="450" cy="520" r="9" fill="#00f2fe" />
+                  <circle data-hf-id="hf-b4lc" cx="425" cy="240" r="14" fill="#ff4b8b" filter="url(#glow-pink-f)" />
+                  <circle data-hf-id="hf-as3q" cx="360" cy="390" r="7" fill="#00f2fe" />
+                  <circle data-hf-id="hf-ec10" cx="485" cy="330" r="7" fill="#00f2fe" />
+                  <circle data-hf-id="hf-v1zd" cx="515" cy="400" r="6" fill="#00f2fe" />
+                  <circle data-hf-id="hf-bkoh" cx="545" cy="430" r="6" fill="#00f2fe" />
+                </g>
+              </g>
+            </svg>
+
+            <!-- Bottom Control Dock -->
+            <div data-hf-id="hf-moqa" class="app-dock" id="app-dock">
+              <div data-hf-id="hf-n299" class="dock-item active" id="dock-swatch">
+                <span data-hf-id="hf-y8ne" class="swatch-circle"></span>
+                <span data-hf-id="hf-hpfj">Sakura Bloom</span>
+              </div>
+              <div data-hf-id="hf-ps9o" class="dock-divider-v"></div>
+              <div data-hf-id="hf-qh1k" class="dock-item active" id="dock-mode">
+                <span data-hf-id="hf-h7fn">🌸 Flower Mode</span>
+              </div>
+              <div data-hf-id="hf-ivjz" class="dock-item" id="dock-trigger">
+                <span data-hf-id="hf-2boy">✨ Always Draw</span>
+              </div>
+              <div data-hf-id="hf-s40k" class="dock-divider-v"></div>
+              <div data-hf-id="hf-wtxq" class="dock-icon-btn active-icon" id="dock-btn-skeleton">
+                <svg data-hf-id="hf-jxn9" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path data-hf-id="hf-1t15" d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /><path data-hf-id="hf-3ryo" d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" /><path data-hf-id="hf-x2sf" d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" /><path data-hf-id="hf-2zwj" d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>
+              </div>
+              <div data-hf-id="hf-kzsm" class="dock-icon-btn" id="dock-btn-clear">
+                <svg data-hf-id="hf-wocp" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path data-hf-id="hf-meqn" d="M3 6h18" /><path data-hf-id="hf-v27e" d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /></svg>
+              </div>
+            </div>
+
+            <!-- Floating UI Callout Bubbles -->
+            <div data-hf-id="hf-pzx6" class="ui-callout-bubble" id="callout-1" style="top: 240px; right: 80px;">
+              <span data-hf-id="hf-22p7">✨</span> 21 3D Joint Landmarks
+            </div>
+            <div data-hf-id="hf-gjem" class="ui-callout-bubble" id="callout-2" style="bottom: 120px; left: 80px; background: rgba(0, 242, 254, 0.95); box-shadow: 0 10px 30px rgba(0, 242, 254, 0.5);">
+              <span data-hf-id="hf-dyz1">🌸</span> Generative Watercolor Physics
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const stemPath = document.getElementById("flower-stem-path");
+      if (stemPath) {
+        const stemLength = 1400;
+        stemPath.style.strokeDasharray = stemLength;
+        stemPath.style.strokeDashoffset = stemLength;
+      }
+
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["scene-2"] = tl;
+
+      tl.fromTo("#app-window", 
+        { opacity: 0, scale: 0.9, rotateX: 8, rotateY: -6, y: 40 },
+        { opacity: 1, scale: 1.0, rotateX: 0, rotateY: 0, y: 0, duration: 0.6, ease: "power3.out" }, 
+        0
+      );
+
+      tl.fromTo("#app-gesture-guide", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+      tl.fromTo("#app-dock", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, ease: "back.out(1.5)" }, 0.25);
+
+      tl.fromTo("#hand-skeleton-group", 
+        { opacity: 0, scale: 0.8 }, 
+        { opacity: 1, scale: 1.0, duration: 0.35, ease: "power2.out" }, 
+        0.3
+      );
+
+      // Smooth Hand Stroke Animation
+      tl.to("#hand-skeleton-group", {
+        x: 420,
+        y: -30,
+        duration: 2.2,
+        ease: "power1.inOut"
+      }, 0.7);
+
+      tl.to(stemPath, {
+        strokeDashoffset: 0,
+        duration: 2.1,
+        ease: "power1.inOut"
+      }, 0.75);
+
+      tl.to("#bloom-1", { scale: 1, duration: 0.4, ease: "back.out(2)" }, 1.1);
+      tl.to("#bloom-2", { scale: 1, duration: 0.4, ease: "back.out(2)" }, 1.7);
+      tl.to("#bloom-3", { scale: 1, duration: 0.4, ease: "back.out(2)" }, 2.4);
+
+      tl.fromTo("#callout-1", { opacity: 0, scale: 0.6, x: 30 }, { opacity: 1, scale: 1, x: 0, duration: 0.45, ease: "back.out(1.8)" }, 1.0);
+      tl.fromTo("#callout-2", { opacity: 0, scale: 0.6, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(1.8)" }, 1.6);
+
+      // Outro transition
+      tl.to("#product-stage", { opacity: 0, scale: 0.88, filter: "blur(12px)", duration: 0.45, ease: "power2.in" }, 3.35);
+    </script>
+  </body>
+</html>

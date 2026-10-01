@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>AuraBloom — 15s Official Launch Video</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      *, *::before, *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #07090e;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-kbh8" id="root" data-composition-id="main" data-start="0" data-duration="15" data-width="1920" data-height="1080">
+      <!-- Background Audio Track (15s duration with fade in/out) -->
+      <audio data-hf-id="hf-xlzz" id="bgm-audio" src="./bgm.wav" data-start="0" data-duration="15" data-volume="0.85" data-fade-in="0.4" data-fade-out="0.8"></audio>
+
+      <!-- Ambient Background Layer (Full 15s) -->
+      <div data-hf-id="hf-nns0" id="ambient-subcomp" class="clip" data-start="0" data-duration="15" data-composition-id="ambient" data-composition-src="compositions/ambient.html"></div>
+
+      <!-- Scene 1: Hook & Brand Intro (0.0s - 3.2s) -->
+      <div data-hf-id="hf-jbn7" id="scene-1-subcomp" class="clip" data-start="0" data-duration="3.2" data-composition-id="scene-1" data-composition-src="compositions/scene-1.html"></div>
+
+      <!-- Scene 2: Live Product UI & Real-Time Tracking (3.2s - 7.0s) -->
+      <div data-hf-id="hf-171v" id="scene-2-subcomp" class="clip" data-start="3.2" data-duration="3.8" data-composition-id="scene-2" data-composition-src="compositions/scene-2.html"></div>
+
+      <!-- Scene 3: Feature Matrix (7.0s - 10.8s) -->
+      <div data-hf-id="hf-21jg" id="scene-3-subcomp" class="clip" data-start="7.0" data-duration="3.8" data-composition-id="scene-3" data-composition-src="compositions/scene-3.html"></div>
+
+      <!-- Scene 4: Final CTA & Climax (10.8s - 15.0s) -->
+      <div data-hf-id="hf-vom6" id="scene-4-subcomp" class="clip" data-start="10.8" data-duration="4.2" data-composition-id="scene-4" data-composition-src="compositions/scene-4.html"></div>
+    </div>
+
+    <!-- Root Timeline Registration -->
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

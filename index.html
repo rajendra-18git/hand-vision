@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AuraBloom — Real-Time Hand Tracking & Generative Floral Ink</title>
+    <meta name="description" content="Client-side real-time hand tracking and procedural watercolor flower ink painting powered by MediaPipe Tasks Vision and HTML5 Canvas." />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Viewport Canvas & Video Layering -->
+      <div class="viewport-container" id="viewport">
+        <!-- 1. Native Mirrored Hardware Video Preview -->
+        <video id="webcam-video" playsinline muted autoplay></video>
+        <!-- 2. Permanent & In-Flight Flower Drawing Canvas -->
+        <canvas id="drawing-canvas"></canvas>
+        <!-- 3. Skeleton & Interactive Cursor Overlay -->
+        <canvas id="skeleton-canvas"></canvas>
+      </div>
+
+      <!-- Top Header HUD -->
+      <header class="header-hud">
+        <div class="brand-badge">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v8"></path>
+              <path d="m4.93 10.93 1.41 1.41"></path>
+              <path d="M2 18h2"></path>
+              <path d="M20 18h2"></path>
+              <path d="m19.07 10.93-1.41 1.41"></path>
+              <path d="M22 22H2"></path>
+              <path d="m16 6-4 4-4-4"></path>
+              <path d="M16 18a4 4 0 0 0-8 0"></path>
+            </svg>
+          </div>
+          <span class="brand-title">AuraBloom</span>
+        </div>
+
+        <div class="header-status">
+          <div id="detection-pill" class="detection-pill searching">
+            <span class="detection-pulse-dot"></span>
+            <span id="detection-pill-text">👀 Searching for hands...</span>
+          </div>
+          <div id="status-pill" class="status-pill">
+            <span class="status-dot loading"></span>
+            <span id="status-text">Initializing Vision AI...</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Gesture Guide Quick-Card -->
+      <div class="gesture-guide-banner">
+        <span class="guide-title">Gestures Guide</span>
+        <div class="guide-item">
+          <span>Point / Pinch + Fist</span>
+          <span class="guide-pill">Draw Ink</span>
+        </div>
+        <div class="guide-item">
+          <span>Thumbs Up</span>
+          <span class="guide-pill">Clear Canvas</span>
+        </div>
+        <div class="guide-item">
+          <span>Peace Sign</span>
+          <span class="guide-pill">Cycle Palette</span>
+        </div>
+      </div>
+
+      <!-- Telemetry Debug HUD -->
+      <div id="debug-hud" class="debug-hud"></div>
+
+      <!-- Action Toast Banner -->
+      <div id="action-toast" class="action-toast">
+        <span id="toast-icon">✨</span>
+        <span id="toast-text">Canvas Cleared</span>
+      </div>
+
+      <!-- Bottom Control Dock -->
+      <nav class="control-dock" aria-label="Drawing Tools">
+        <!-- Palette Dropdown Group -->
+        <div class="palette-picker">
+          <button id="palette-btn" class="dock-btn" title="Choose Floral Palette">
+            <span id="active-palette-swatch" class="palette-swatch" style="background: linear-gradient(135deg, #ffb7c5, #ff69b4);"></span>
+            <span id="active-palette-name">Sakura</span>
+          </button>
+          <div id="palette-dropdown" class="palette-dropdown">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="dock-divider"></div>
+
+        <!-- Mode Toggle -->
+        <div class="dock-group">
+          <button id="mode-flower-btn" class="dock-btn active" title="Generative Watercolor Flower Ink">
+            <span>🌸 Flower</span>
+          </button>
+          <button id="mode-plain-btn" class="dock-btn" title="Plain Line Debug Mode">
+            <span>✏️ Line</span>
+          </button>
+          <button id="trigger-btn" class="dock-btn active" title="Click to toggle: Gesture Trigger vs Always Draw">
+            <span id="trigger-label">✨ Always Draw</span>
+          </button>
+        </div>
+
+        <div class="dock-divider"></div>
+
+        <!-- Canvas Actions -->
+        <div class="dock-group">
+          <button id="undo-btn" class="dock-btn icon-only" title="Undo Last Stroke (Ctrl+Z)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7v6h6"></path>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+            </svg>
+          </button>
+          <button id="clear-btn" class="dock-btn icon-only" title="Clear Canvas (Thumbs Up Gesture / C)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="dock-divider"></div>
+
+        <!-- Vision & Camera Toggles -->
+        <div class="dock-group">
+          <button id="skeleton-btn" class="dock-btn icon-only" title="Toggle Skeleton Lines (S)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+              <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+              <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+            </svg>
+          </button>
+          <button id="camera-flip-btn" class="dock-btn icon-only" title="Switch Camera (Front/Rear)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+              <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="m18 22-3-3 3-3"></path>
+              <path d="m6 2 3 3-3 3"></path>
+            </svg>
+          </button>
+          <button id="debug-toggle-btn" class="dock-btn icon-only active" title="Toggle Telemetry HUD (D)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+              <path d="M3 9h18"></path>
+              <path d="M9 21V9"></path>
+            </svg>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Loading / Permission Modal -->
+      <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-card">
+          <div id="modal-icon-container" class="modal-icon-ring">
+            <div class="spinner"></div>
+          </div>
+          <h2 id="modal-title" class="modal-title">Starting AuraBloom</h2>
+          <p id="modal-desc" class="modal-description">
+            Initializing neural vision models and requesting camera access for real-time hand tracking.
+          </p>
+          <div class="modal-btn-group">
+            <button id="modal-btn" class="modal-btn">Allow Camera Access</button>
+            <button id="modal-demo-btn" class="modal-btn secondary">Use Mouse / Touch Demo</button>
+          </div>
+          <div id="modal-help-tip" class="modal-help-tip" style="display: none;">
+            💡 <strong>Tip:</strong> In Chrome, click the site settings / lock icon on the left of the URL bar (<code>localhost:3000</code>) and set <strong>Camera</strong> to <strong>Allow</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

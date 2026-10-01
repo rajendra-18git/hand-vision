@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        color: #ffffff;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      .scene-3-header {
+        text-align: center;
+        margin-bottom: 50px;
+      }
+      .scene-3-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: #ff85b3;
+        margin-bottom: 12px;
+      }
+      .scene-3-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 68px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .cards-grid {
+        display: flex;
+        gap: 32px;
+        width: 1600px;
+        justify-content: center;
+      }
+      .feature-card {
+        flex: 1;
+        background: rgba(18, 24, 38, 0.8);
+        backdrop-filter: blur(25px);
+        border: 1.5px solid rgba(255, 255, 255, 0.12);
+        border-radius: 28px;
+        padding: 44px 36px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+      }
+      .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, transparent, var(--card-accent), transparent);
+      }
+      .card-1 { --card-accent: #00f2fe; }
+      .card-2 { --card-accent: #ff7eb3; }
+      .card-3 { --card-accent: #c084fc; }
+      .card-icon-box {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin-bottom: 28px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      }
+      .card-stat-pill {
+        align-self: flex-start;
+        padding: 6px 14px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--card-accent);
+        margin-bottom: 20px;
+      }
+      .card-heading {
+        font-family: 'Outfit', sans-serif;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 14px;
+        color: #ffffff;
+      }
+      .card-desc {
+        font-size: 18px;
+        line-height: 1.6;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-tkwd" id="root" data-composition-id="scene-3" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-9k6t" id="s3-content-wrapper" style="display: flex; flex-direction: column; align-items: center;">
+        <div data-hf-id="hf-jg5c" class="scene-3-header" id="s3-header">
+          <div data-hf-id="hf-tcqo" class="scene-3-tag" id="s3-tag">⚡ WHY CREATORS LOVE AURABLOOM</div>
+          <h2 data-hf-id="hf-7bvb" class="scene-3-title" id="s3-title">Engineered for Seamless Performance</h2>
+        </div>
+
+        <div data-hf-id="hf-n1td" class="cards-grid" id="s3-cards-grid">
+          <!-- Card 1 -->
+          <div data-hf-id="hf-ci9p" class="feature-card card-1" id="card-1">
+            <div data-hf-id="hf-kq7g" class="card-stat-pill">⚡ SUB-5MS LATENCY</div>
+            <div data-hf-id="hf-70pc" class="card-icon-box" style="color: #00f2fe;">
+              <svg data-hf-id="hf-89n8" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon data-hf-id="hf-oz1e" points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+            </div>
+            <h3 data-hf-id="hf-69v4" class="card-heading">Zero Cloud Lag</h3>
+            <p data-hf-id="hf-vkgu" class="card-desc">
+              Executes 100% locally via WebAssembly &amp; WebGL. No video ever uploads to a server — complete privacy.
+            </p>
+          </div>
+
+          <!-- Card 2 -->
+          <div data-hf-id="hf-hi5x" class="feature-card card-2" id="card-2">
+            <div data-hf-id="hf-akgy" class="card-stat-pill">🌸 PROCEDURAL INK</div>
+            <div data-hf-id="hf-xdcy" class="card-icon-box" style="color: #ff7eb3;">
+              <svg data-hf-id="hf-hkoc" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle data-hf-id="hf-2731" cx="12" cy="12" r="3" /><path data-hf-id="hf-jlri" d="M12 2v4" /><path data-hf-id="hf-5rib" d="M12 18v4" /><path data-hf-id="hf-z3br" d="m4.93 4.93 2.83 2.83" /><path data-hf-id="hf-vqlb" d="m16.24 16.24 2.83 2.83" /><path data-hf-id="hf-uols" d="M2 12h4" /><path data-hf-id="hf-01hx" d="M18 12h4" /><path data-hf-id="hf-430d" d="m4.93 19.07 2.83-2.83" /><path data-hf-id="hf-9fsd" d="m16.24 7.76 2.83-2.83" /></svg>
+            </div>
+            <h3 data-hf-id="hf-tgac" class="card-heading">Generative Floral Physics</h3>
+            <p data-hf-id="hf-q6p2" class="card-desc">
+              Procedural petal diffusion and velocity dynamics translate your natural hand flow into blooming art.
+            </p>
+          </div>
+
+          <!-- Card 3 -->
+          <div data-hf-id="hf-88j5" class="feature-card card-3" id="card-3">
+            <div data-hf-id="hf-wsvl" class="card-stat-pill">🖐️ TOUCHLESS SPATIAL</div>
+            <div data-hf-id="hf-jv9d" class="card-icon-box" style="color: #b376e5;">
+              <svg data-hf-id="hf-gdr9" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path data-hf-id="hf-1t15" d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /><path data-hf-id="hf-3ryo" d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" /><path data-hf-id="hf-x2sf" d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" /><path data-hf-id="hf-2zwj" d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>
+            </div>
+            <h3 data-hf-id="hf-zp9b" class="card-heading">Spatial Gestures</h3>
+            <p data-hf-id="hf-gk8g" class="card-desc">
+              Point to paint, thumbs up to wipe the canvas, and peace sign to cycle palettes instantly.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["scene-3"] = tl;
+
+      tl.fromTo("#s3-tag", { opacity: 0, y: -15 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 0);
+      tl.fromTo("#s3-title", { opacity: 0, y: 25 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.08);
+
+      tl.fromTo("#card-1", 
+        { opacity: 0, y: 50, scale: 0.92, rotateY: 8 }, 
+        { opacity: 1, y: 0, scale: 1, rotateY: 0, duration: 0.55, ease: "back.out(1.5)" }, 
+        0.18
+      );
+
+      tl.fromTo("#card-2", 
+        { opacity: 0, y: 50, scale: 0.92 }, 
+        { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(1.5)" }, 
+        0.28
+      );
+
+      tl.fromTo("#card-3", 
+        { opacity: 0, y: 50, scale: 0.92, rotateY: -8 }, 
+        { opacity: 1, y: 0, scale: 1, rotateY: 0, duration: 0.55, ease: "back.out(1.5)" }, 
+        0.38
+      );
+
+      tl.to("#card-2", { y: -10, boxShadow: "0 40px 80px rgba(255, 94, 152, 0.35)", duration: 1.0, ease: "sine.inOut" }, 1.0);
+
+      // Outro
+      tl.to("#s3-content-wrapper", { opacity: 0, scale: 1.06, filter: "blur(10px)", duration: 0.45, ease: "power2.in" }, 3.35);
+    </script>
+  </body>
+</html>

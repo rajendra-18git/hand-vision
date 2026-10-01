@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800;900&family=Plus+Jakarta+Sans:wght@500;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        color: #ffffff;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .scene-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        max-width: 1400px;
+      }
+      .brand-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 24px;
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 9999px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #00f2fe;
+        box-shadow: 0 8px 32px rgba(0, 242, 254, 0.15);
+        margin-bottom: 28px;
+      }
+      .hero-logo-box {
+        position: relative;
+        width: 140px;
+        height: 140px;
+        margin-bottom: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .hero-logo-halo {
+        position: absolute;
+        inset: -20px;
+        background: radial-gradient(circle, rgba(255, 94, 152, 0.6) 0%, rgba(0, 242, 254, 0.2) 50%, transparent 75%);
+        border-radius: 50%;
+        filter: blur(25px);
+      }
+      .hero-logo-svg-container {
+        position: relative;
+        z-index: 2;
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, rgba(255, 94, 152, 0.2), rgba(0, 242, 254, 0.2));
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 25px rgba(255, 255, 255, 0.2);
+      }
+      .scene-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 92px;
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+        margin-bottom: 24px;
+        text-transform: uppercase;
+      }
+      .title-sakura {
+        background: linear-gradient(135deg, #ffffff 10%, #ff80bf 50%, #ff4b8b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: block;
+      }
+      .title-cyan {
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #c471ed 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: block;
+      }
+      .scene-subtitle {
+        font-size: 26px;
+        font-weight: 500;
+        color: #d1d5db;
+        max-width: 860px;
+        line-height: 1.5;
+        margin-bottom: 36px;
+      }
+      .highlight-badge-row {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+      }
+      .feature-chip {
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-avir" id="root" data-composition-id="scene-1" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-0k9g" class="scene-container" id="s1-content-box">
+        <div data-hf-id="hf-5h4x" id="s1-pill" class="brand-pill">
+          <span data-hf-id="hf-yqtl">✨ Real-Time Neural Vision &amp; Generative Art</span>
+        </div>
+
+        <div data-hf-id="hf-iv2a" id="s1-logo-box" class="hero-logo-box">
+          <div data-hf-id="hf-d2hu" class="hero-logo-halo" id="s1-logo-halo"></div>
+          <div data-hf-id="hf-38tr" class="hero-logo-svg-container" id="s1-logo-icon">
+            <svg data-hf-id="hf-2tcx" width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ff85b3;">
+              <path data-hf-id="hf-puyq" d="M12 2v8" />
+              <path data-hf-id="hf-qnp2" d="m4.93 10.93 1.41 1.41" />
+              <path data-hf-id="hf-zduk" d="M2 18h2" />
+              <path data-hf-id="hf-1ahm" d="M20 18h2" />
+              <path data-hf-id="hf-h92y" d="m19.07 10.93-1.41 1.41" />
+              <path data-hf-id="hf-l6m3" d="M22 22H2" />
+              <path data-hf-id="hf-vznr" d="m16 6-4 4-4-4" />
+              <path data-hf-id="hf-zjl5" d="M16 18a4 4 0 0 0-8 0" />
+            </svg>
+          </div>
+        </div>
+
+        <h1 data-hf-id="hf-36uo" id="s1-title" class="scene-title">
+          <span data-hf-id="hf-ikna" class="title-sakura" id="s1-title-1">Transform Motion</span>
+          <span data-hf-id="hf-jgfv" class="title-cyan" id="s1-title-2">Into Living Floral Art</span>
+        </h1>
+
+        <p data-hf-id="hf-4pgw" id="s1-desc" class="scene-subtitle">
+          Experience <strong data-hf-id="hf-bcuo">AuraBloom</strong> — AI-driven touchless hand tracking that renders fluid watercolor botanical strokes in real-time.
+        </p>
+
+        <div data-hf-id="hf-rs64" id="s1-badges" class="highlight-badge-row">
+          <div data-hf-id="hf-x1d0" class="feature-chip" id="chip-1">
+            <span data-hf-id="hf-okn4">⚡</span> 0ms Cloud Lag
+          </div>
+          <div data-hf-id="hf-s0sj" class="feature-chip" id="chip-2">
+            <span data-hf-id="hf-saya">🔒</span> 100% Client-Side Privacy
+          </div>
+          <div data-hf-id="hf-xkf8" class="feature-chip" id="chip-3">
+            <span data-hf-id="hf-dyz1">🌸</span> Procedural Watercolor Ink
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["scene-1"] = tl;
+
+      // Pulse and scale animations with immediate visibility
+      tl.from("#s1-pill", { y: -20, scale: 0.95, duration: 0.45, ease: "back.out(1.7)" }, 0);
+      tl.from("#s1-logo-box", { scale: 0.7, rotation: -20, duration: 0.6, ease: "back.out(2)" }, 0);
+      tl.from("#s1-logo-halo", { scale: 0.6, opacity: 0.4, duration: 0.6, ease: "power2.out" }, 0);
+
+      tl.from("#s1-title-1", { y: 25, duration: 0.5, ease: "power3.out" }, 0.05);
+      tl.from("#s1-title-2", { y: 25, duration: 0.5, ease: "power3.out" }, 0.12);
+
+      tl.from("#s1-desc", { y: 15, opacity: 0.5, duration: 0.45, ease: "power2.out" }, 0.2);
+
+      tl.from("#s1-badges .feature-chip", 
+        { y: 15, scale: 0.95, stagger: 0.06, duration: 0.4, ease: "back.out(1.5)" }, 
+        0.3
+      );
+
+      // Subtle dynamic float during scene
+      tl.to("#s1-logo-box", { y: -8, duration: 1.2, ease: "sine.inOut", yoyo: true, repeat: 1 }, 0.6);
+
+      // Outro
+      tl.to("#s1-content-box", { opacity: 0, scale: 1.06, filter: "blur(10px)", duration: 0.45, ease: "power2.in" }, 2.75);
+    </script>
+  </body>
+</html>
