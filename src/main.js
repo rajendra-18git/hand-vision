@@ -1,5 +1,5 @@
 /**
- * App Orchestrator & Pipeline Lifecycle Manager
+ * App Orchestrator & Interactive Botanical Garden Lifecycle Manager
  * Links Stages 1 through 8 in a high-performance requestAnimationFrame loop.
  */
 
@@ -14,7 +14,7 @@ import { FlowerRenderer } from './pipeline/8_flowerRenderer.js';
 
 import { SkeletonRenderer } from './render/skeletonRenderer.js';
 import { DebugOverlay } from './render/debugOverlay.js';
-import { PALETTES, PALETTE_LIST } from './render/palette.js';
+import { FLOWER_COLLECTION, FLOWER_LIST } from './render/palette.js';
 import { UndoManager } from './utils/undoManager.js';
 
 class App {
@@ -32,6 +32,14 @@ class App {
     this.detectionPill = document.getElementById('detection-pill');
     this.detectionPillText = document.getElementById('detection-pill-text');
 
+    this.flowerRibbon = document.getElementById('flower-ribbon');
+    this.botanicalCard = document.getElementById('botanical-card-hud');
+    this.botanicalAvatar = document.getElementById('botanical-avatar');
+    this.botanicalName = document.getElementById('botanical-name');
+    this.botanicalBinomial = document.getElementById('botanical-binomial');
+    this.botanicalFamily = document.getElementById('botanical-family');
+    this.botanicalDesc = document.getElementById('botanical-desc');
+
     this.modalOverlay = document.getElementById('modal-overlay');
     this.modalTitle = document.getElementById('modal-title');
     this.modalDesc = document.getElementById('modal-desc');
@@ -47,17 +55,11 @@ class App {
     // UI Buttons
     this.undoBtn = document.getElementById('undo-btn');
     this.clearBtn = document.getElementById('clear-btn');
-    this.modeFlowerBtn = document.getElementById('mode-flower-btn');
-    this.modePlainBtn = document.getElementById('mode-plain-btn');
     this.triggerBtn = document.getElementById('trigger-btn');
     this.triggerLabel = document.getElementById('trigger-label');
     this.skeletonBtn = document.getElementById('skeleton-btn');
     this.cameraFlipBtn = document.getElementById('camera-flip-btn');
     this.debugToggleBtn = document.getElementById('debug-toggle-btn');
-    this.paletteBtn = document.getElementById('palette-btn');
-    this.paletteDropdown = document.getElementById('palette-dropdown');
-    this.activePaletteSwatch = document.getElementById('active-palette-swatch');
-    this.activePaletteName = document.getElementById('active-palette-name');
 
     // Pipeline Stage Instances
     this.cameraManager = new CameraManager({
@@ -84,7 +86,7 @@ class App {
     this.actionDispatcher.setAlwaysDraw(true);
 
     this.isMirrored = true;
-    this.currentPaletteIndex = 0;
+    this.currentFlowerIndex = 0;
     this.toastTimeout = null;
 
     // Mouse / Touch Demo Mode State
@@ -97,13 +99,13 @@ class App {
 
   async init() {
     this.setupResizeHandler();
-    this.setupPaletteDropdown();
+    this.setupFlowerRibbon();
     this.setupUIEventListeners();
     this.setupActionBindings();
     this.setupMouseSimulation();
 
-    // Set default botanical white daisy palette from reference image
-    this.selectPalette('whiteDaisy');
+    // Select default flower (All Garden Mix)
+    this.selectFlower('allMix');
 
     // Wire up modal action buttons
     this.modalBtn.onclick = async () => {
@@ -125,20 +127,17 @@ class App {
     this.modalDemoBtn.onclick = () => {
       this.isDemoMode = true;
       this.hideModal();
-      this.setStatus('Mouse Paint Mode', 'ready');
-      this.showToast('🎨', 'Click & drag anywhere to paint watercolor flowers!');
+      this.setStatus('Interactive Garden (Mouse Mode)', 'ready');
+      this.showToast('🌸', 'Click & drag to plant realistic flower clusters!');
     };
 
     try {
-      // 1. Initialize MediaPipe Model
       this.setStatus('Loading Vision AI...', 'loading');
       await this.detector.init();
 
-      // 2. Attempt Camera Start
       this.setStatus('Starting Camera...', 'loading');
       await this.cameraManager.start();
 
-      // 3. Hide loading modal & start loop
       this.hideModal();
       this.setStatus('Camera Active', 'ready');
     } catch (err) {
@@ -146,7 +145,6 @@ class App {
       this.handleCameraError(err);
     }
 
-    // Always start animation loop so drawing and particles render
     this.startLoop();
   }
 
@@ -168,87 +166,68 @@ class App {
     handleResize();
   }
 
-  setupPaletteDropdown() {
-    this.paletteDropdown.innerHTML = PALETTE_LIST.map((p, idx) => {
-      const pColor1 = p.flowers[0].primary;
-      const pColor2 = p.flowers[0].secondary;
-      return `
-        <button class="palette-option ${idx === 0 ? 'selected' : ''}" data-palette-id="${p.id}">
-          <span class="palette-swatch" style="background: linear-gradient(135deg, ${pColor1}, ${pColor2});"></span>
-          <span>${p.name}</span>
-        </button>
-      `;
-    }).join('');
+  setupFlowerRibbon() {
+    if (!this.flowerRibbon) return;
 
-    this.paletteDropdown.querySelectorAll('.palette-option').forEach((opt) => {
-      opt.addEventListener('click', (e) => {
-        const palId = opt.getAttribute('data-palette-id');
-        this.selectPalette(palId);
-        this.paletteDropdown.classList.remove('open');
+    this.flowerRibbon.innerHTML = FLOWER_LIST.map((flower, idx) => `
+      <button class="flower-pill ${idx === 0 ? 'active' : ''}" data-flower-id="${flower.id}">
+        <span class="flower-pill-emoji">${flower.emoji}</span>
+        <span>${flower.name}</span>
+      </button>
+    `).join('');
+
+    this.flowerRibbon.querySelectorAll('.flower-pill').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const flowerId = pill.getAttribute('data-flower-id');
+        this.selectFlower(flowerId);
       });
     });
   }
 
-  selectPalette(paletteId) {
-    const palette = PALETTES[paletteId];
-    if (!palette) return;
+  selectFlower(flowerId) {
+    const flower = FLOWER_COLLECTION[flowerId];
+    if (!flower) return;
 
-    this.flowerRenderer.setPalette(paletteId);
-    this.currentPaletteIndex = PALETTE_LIST.findIndex((p) => p.id === paletteId);
+    this.flowerRenderer.setFlowerType(flowerId);
+    this.currentFlowerIndex = FLOWER_LIST.findIndex((f) => f.id === flowerId);
 
-    // Update active swatch
-    const pColor1 = palette.flowers[0].primary;
-    const pColor2 = palette.flowers[0].secondary;
-    this.activePaletteSwatch.style.background = `linear-gradient(135deg, ${pColor1}, ${pColor2})`;
-    this.activePaletteName.textContent = palette.name.split(' ')[0];
+    // Update Ribbon active pills
+    if (this.flowerRibbon) {
+      this.flowerRibbon.querySelectorAll('.flower-pill').forEach((pill) => {
+        pill.classList.toggle('active', pill.getAttribute('data-flower-id') === flowerId);
+      });
+    }
 
-    // Update selected class
-    this.paletteDropdown.querySelectorAll('.palette-option').forEach((opt) => {
-      opt.classList.toggle('selected', opt.getAttribute('data-palette-id') === paletteId);
-    });
+    // Update Botanical Info Card HUD
+    this.updateBotanicalCard(flower);
 
-    this.showToast('🌸', `Palette: ${palette.name}`);
+    this.showToast(flower.emoji, `${flower.name}`);
   }
 
-  cyclePalette() {
-    this.currentPaletteIndex = (this.currentPaletteIndex + 1) % PALETTE_LIST.length;
-    const nextPalette = PALETTE_LIST[this.currentPaletteIndex];
-    this.selectPalette(nextPalette.id);
+  updateBotanicalCard(flower) {
+    if (!this.botanicalCard) return;
+
+    if (this.botanicalAvatar) this.botanicalAvatar.textContent = flower.emoji;
+    if (this.botanicalName) this.botanicalName.textContent = flower.name;
+    if (this.botanicalBinomial) this.botanicalBinomial.textContent = flower.scientificName || '';
+    if (this.botanicalFamily) this.botanicalFamily.textContent = flower.family || 'Botanical';
+    if (this.botanicalDesc) this.botanicalDesc.textContent = flower.description || '';
+  }
+
+  cycleFlowerVariety() {
+    this.currentFlowerIndex = (this.currentFlowerIndex + 1) % FLOWER_LIST.length;
+    const nextFlower = FLOWER_LIST[this.currentFlowerIndex];
+    this.selectFlower(nextFlower.id);
   }
 
   setupUIEventListeners() {
-    // Palette Dropdown Toggle
-    this.paletteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.paletteDropdown.classList.toggle('open');
-    });
-
-    document.addEventListener('click', () => {
-      this.paletteDropdown.classList.remove('open');
-    });
-
-    // Brush Modes
-    this.modeFlowerBtn.addEventListener('click', () => {
-      this.flowerRenderer.setMode('flower');
-      this.modeFlowerBtn.classList.add('active');
-      this.modePlainBtn.classList.remove('active');
-      this.showToast('🌸', 'Flower Watercolor Ink Mode');
-    });
-
-    this.modePlainBtn.addEventListener('click', () => {
-      this.flowerRenderer.setMode('plain');
-      this.modePlainBtn.classList.add('active');
-      this.modeFlowerBtn.classList.remove('active');
-      this.showToast('✏️', 'Plain Line Mode');
-    });
-
     // Draw Trigger Mode Toggle (Point/Pinch vs Always Draw)
     this.triggerBtn.addEventListener('click', () => {
       const isAlways = !this.actionDispatcher.alwaysDraw;
       this.actionDispatcher.setAlwaysDraw(isAlways);
       this.triggerBtn.classList.toggle('active', isAlways);
       this.triggerLabel.textContent = isAlways ? '✨ Always Draw' : '☝️ Point / Pinch';
-      this.showToast(isAlways ? '✨' : '☝️', isAlways ? 'Mode: Continuous Single Finger Pen' : 'Mode: Point / Pinch Gesture');
+      this.showToast(isAlways ? '✨' : '☝️', isAlways ? 'Continuous Hand Planting' : 'Point / Pinch Gesture Mode');
     });
 
     // Canvas Actions
@@ -264,7 +243,7 @@ class App {
     this.skeletonBtn.addEventListener('click', () => {
       const showLines = this.skeletonRenderer.toggleSkeletonLines();
       this.skeletonBtn.classList.toggle('active', showLines);
-      this.showToast(showLines ? '👁️' : '✨', showLines ? 'Skeleton Lines On' : 'Clean Pen View (Lines Hidden)');
+      this.showToast(showLines ? '👁️' : '✨', showLines ? 'Skeleton Lines On' : 'Clean Garden View');
     });
 
     // Telemetry Debug HUD Toggle
@@ -302,14 +281,20 @@ class App {
         this.skeletonBtn.click();
       } else if (e.key.toLowerCase() === 'd') {
         this.debugToggleBtn.click();
+      } else if (e.key === ' ' || e.key.toLowerCase() === 'b') {
+        // Spacebar or B triggers Blossom Burst
+        const center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        this.flowerRenderer.spawnBlossomBurst(center);
+        this.showToast('🌸', 'Blossom Shower!');
+      } else if (e.key.toLowerCase() === 'f') {
+        this.cycleFlowerVariety();
       }
     });
   }
 
   setupMouseSimulation() {
     const handlePointerDown = (e) => {
-      // Don't draw if clicking on dock or HUD buttons
-      if (e.target.closest('.control-dock') || e.target.closest('.header-hud') || e.target.closest('.modal-overlay')) {
+      if (e.target.closest('.control-dock') || e.target.closest('.header-hud') || e.target.closest('.botanical-card-hud') || e.target.closest('.modal-overlay')) {
         return;
       }
 
@@ -322,10 +307,16 @@ class App {
     };
 
     const handlePointerMove = (e) => {
-      if (!this.isMouseDown) return;
-
       const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+      // Update hover inspector for botanical card
+      this.flowerRenderer.setHoverCursor({ x, y });
+      if (this.flowerRenderer.hoveredFlower) {
+        this.updateBotanicalCard(this.flowerRenderer.hoveredFlower);
+      }
+
+      if (!this.isMouseDown) return;
 
       const dx = x - this.lastMousePos.x;
       const dy = y - this.lastMousePos.y;
@@ -340,7 +331,7 @@ class App {
       if (this.isMouseDown) {
         this.isMouseDown = false;
         const stroke = this.flowerRenderer.endStroke('mouse_pen');
-        if (stroke && stroke.points.length > 1) {
+        if (stroke && stroke.points && stroke.points.length > 1) {
           this.undoManager.push(stroke);
         }
       }
@@ -367,26 +358,39 @@ class App {
 
     this.actionDispatcher.on('DRAW_END', ({ trackId }) => {
       const finishedStroke = this.flowerRenderer.endStroke(trackId);
-      if (finishedStroke && finishedStroke.points.length > 1) {
+      if (finishedStroke && finishedStroke.points && finishedStroke.points.length > 1) {
         this.undoManager.push(finishedStroke);
       }
     });
 
     // 2. Gesture Actions
-    this.actionDispatcher.on('CLEAR_CANVAS', () => {
-      this.clearCanvas();
-      this.showToast('🧹', 'Thumbs Up Gesture: Canvas Cleared');
+    this.actionDispatcher.on('BLOSSOM_BURST', ({ hand }) => {
+      const center = hand.pinchCenter || hand.indexTip;
+      this.flowerRenderer.spawnBlossomBurst(center);
+      this.showToast('🌸', 'Open Palm: Blossom Shower Burst!');
     });
 
-    this.actionDispatcher.on('CYCLE_PALETTE', () => {
-      this.cyclePalette();
+    this.actionDispatcher.on('CYCLE_FLOWER', () => {
+      this.cycleFlowerVariety();
+    });
+
+    this.actionDispatcher.on('CLEAR_CANVAS', () => {
+      this.clearCanvas();
+      this.showToast('🧹', 'Thumbs Up Gesture: Garden Cleared');
+    });
+
+    this.actionDispatcher.on('HOVER', ({ point }) => {
+      this.flowerRenderer.setHoverCursor(point);
+      if (this.flowerRenderer.hoveredFlower) {
+        this.updateBotanicalCard(this.flowerRenderer.hoveredFlower);
+      }
     });
   }
 
   clearCanvas() {
     this.flowerRenderer.clear();
     this.undoManager.clear();
-    this.showToast('🧹', 'Canvas Cleared');
+    this.showToast('🧹', 'Garden Cleared');
   }
 
   undoStroke() {
@@ -466,7 +470,6 @@ class App {
         const cWidth = this.drawingCanvas.width || window.innerWidth;
         const cHeight = this.drawingCanvas.height || window.innerHeight;
 
-        // Compute object-fit cover transform
         const vWidth = video.videoWidth;
         const vHeight = video.videoHeight;
         const hRatio = cWidth / vWidth;
@@ -477,10 +480,8 @@ class App {
         const centerShiftX = (cWidth - drawW) / 2;
         const centerShiftY = (cHeight - drawH) / 2;
 
-        // 2. Stage 2: Hand Detection
         const detectionResults = this.detector.detect(video, timestamp);
 
-        // 3. Stage 3: Keypoint Extraction & Mirrored Space Normalization
         const viewportTransform = {
           offsetX: centerShiftX,
           offsetY: centerShiftY,
@@ -521,9 +522,9 @@ class App {
 
           if (this.detectionPill) {
             this.detectionPill.className = 'detection-pill detected';
-            this.detectionPillText.textContent = `🟢 ${classifiedHands.length} Hand Detected (${mainHand.handedness} • ${mainGesture} • ${conf}%)`;
+            this.detectionPillText.textContent = `🟢 ${classifiedHands.length} Hand (${mainHand.handedness} • ${mainGesture} • ${conf}%)`;
           }
-          this.setStatus(`Tracking ${classifiedHands.length} Hand`, 'ready');
+          this.setStatus(`Garden Active • ${classifiedHands.length} Hand`, 'ready');
         } else {
           if (this.detectionPill) {
             this.detectionPill.className = 'detection-pill searching';
@@ -534,7 +535,7 @@ class App {
       } else if (this.isDemoMode) {
         if (this.detectionPill) {
           this.detectionPill.className = 'detection-pill searching';
-          this.detectionPillText.textContent = '🎨 Mouse / Touch Paint Mode';
+          this.detectionPillText.textContent = '🎨 Interactive Mouse / Touch Mode';
         }
       }
 
@@ -543,7 +544,7 @@ class App {
         this.actionDispatcher.process(classifiedHands, timestamp);
       }
 
-      // 8. Stage 8: Generative Watercolor Flower Ink Rendering
+      // 8. Stage 8: Interactive Botanical Flower Garden Rendering
       this.flowerRenderer.render();
 
       // 9. Overlay: Skeleton & Gestural Cursor

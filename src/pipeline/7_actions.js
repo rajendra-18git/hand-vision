@@ -9,19 +9,19 @@ export const DEFAULT_ACTION_CONFIG = {
     type: 'DRAW',
     target: 'indexTip',
     continuous: true,
-    description: 'Draw with index finger'
+    description: 'Plant flowers with index finger'
   },
   pinch: {
     type: 'DRAW',
     target: 'pinchCenter',
     continuous: true,
-    description: 'Precision pinch draw'
+    description: 'Precision pinch planting'
   },
   open_palm: {
-    type: 'HOVER',
-    target: 'indexTip',
-    continuous: true,
-    description: 'Hover cursor without drawing'
+    type: 'BLOSSOM_BURST',
+    trigger: 'ENTER',
+    debounceMs: 800,
+    description: 'Open palm to shower blooming flowers'
   },
   fist: {
     type: 'REST',
@@ -31,13 +31,13 @@ export const DEFAULT_ACTION_CONFIG = {
     type: 'CLEAR_CANVAS',
     trigger: 'ENTER',
     debounceMs: 700,
-    description: 'Thumbs up to clear canvas'
+    description: 'Thumbs up to clear garden'
   },
   peace: {
-    type: 'CYCLE_PALETTE',
+    type: 'CYCLE_FLOWER',
     trigger: 'ENTER',
-    debounceMs: 600,
-    description: 'Peace sign to switch palette'
+    debounceMs: 500,
+    description: 'Peace sign to switch flower variety'
   }
 };
 

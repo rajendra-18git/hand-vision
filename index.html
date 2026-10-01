@@ -3,9 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>AuraBloom — Real-Time Hand Tracking & Generative Floral Ink</title>
-    <meta name="description" content="Client-side real-time hand tracking and procedural watercolor flower ink painting powered by MediaPipe Tasks Vision and HTML5 Canvas." />
+    <title>AuraBloom — Realistic Interactive Botanical Garden</title>
+    <meta name="description" content="Realistic interactive 3D flower garden powered by MediaPipe Vision AI hand tracking and high-resolution botanical photographic assets." />
     <link rel="stylesheet" href="/src/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="app">
@@ -13,7 +16,7 @@
       <div class="viewport-container" id="viewport">
         <!-- 1. Native Mirrored Hardware Video Preview -->
         <video id="webcam-video" playsinline muted autoplay></video>
-        <!-- 2. Permanent & In-Flight Flower Drawing Canvas -->
+        <!-- 2. Permanent & In-Flight Photorealistic Flower Drawing Canvas -->
         <canvas id="drawing-canvas"></canvas>
         <!-- 3. Skeleton & Interactive Cursor Overlay -->
         <canvas id="skeleton-canvas"></canvas>
@@ -23,7 +26,7 @@
       <header class="header-hud">
         <div class="brand-badge">
           <div class="brand-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2v8"></path>
               <path d="m4.93 10.93 1.41 1.41"></path>
               <path d="M2 18h2"></path>
@@ -34,7 +37,15 @@
               <path d="M16 18a4 4 0 0 0-8 0"></path>
             </svg>
           </div>
-          <span class="brand-title">AuraBloom</span>
+          <div class="brand-text-col">
+            <span class="brand-title">AuraBloom Garden</span>
+            <span class="brand-subtitle">Interactive Botanical Vision</span>
+          </div>
+        </div>
+
+        <!-- Flower Selection Ribbon -->
+        <div class="flower-ribbon" id="flower-ribbon" aria-label="Botanical Flower Selector">
+          <!-- Populated dynamically via main.js -->
         </div>
 
         <div class="header-status">
@@ -49,20 +60,42 @@
         </div>
       </header>
 
+      <!-- Botanical Info Card HUD -->
+      <aside class="botanical-card-hud" id="botanical-card-hud">
+        <div class="botanical-card-header">
+          <div class="flower-avatar" id="botanical-avatar">🌸</div>
+          <div class="botanical-title-group">
+            <h3 id="botanical-name">Botanical Garden Mix</h3>
+            <span class="botanical-binomial" id="botanical-binomial">Flora Varietate</span>
+          </div>
+        </div>
+        <div class="botanical-meta-row">
+          <span class="meta-tag" id="botanical-family">Diverse Garden</span>
+          <span class="meta-tag active" id="botanical-mode">Active Selection</span>
+        </div>
+        <p class="botanical-description" id="botanical-desc">
+          A rich, vibrant tapestry featuring Dahlias, Purple Roses, Frangipani, African Daisies, and Chamomile.
+        </p>
+      </aside>
+
       <!-- Gesture Guide Quick-Card -->
       <div class="gesture-guide-banner">
         <span class="guide-title">Gestures Guide</span>
         <div class="guide-item">
-          <span>Point / Pinch + Fist</span>
-          <span class="guide-pill">Draw Ink</span>
+          <span>☝️ Point / Drag</span>
+          <span class="guide-pill">Plant Cascade</span>
         </div>
         <div class="guide-item">
-          <span>Thumbs Up</span>
-          <span class="guide-pill">Clear Canvas</span>
+          <span>🖐️ Open Palm</span>
+          <span class="guide-pill">Blossom Burst</span>
         </div>
         <div class="guide-item">
-          <span>Peace Sign</span>
-          <span class="guide-pill">Cycle Palette</span>
+          <span>✌️ Peace Sign</span>
+          <span class="guide-pill">Cycle Flowers</span>
+        </div>
+        <div class="guide-item">
+          <span>👍 Thumbs Up</span>
+          <span class="guide-pill">Clear Garden</span>
         </div>
       </div>
 
@@ -72,53 +105,36 @@
       <!-- Action Toast Banner -->
       <div id="action-toast" class="action-toast">
         <span id="toast-icon">✨</span>
-        <span id="toast-text">Canvas Cleared</span>
+        <span id="toast-text">Garden Cleared</span>
       </div>
 
       <!-- Bottom Control Dock -->
       <nav class="control-dock" aria-label="Drawing Tools">
-        <!-- Palette Dropdown Group -->
-        <div class="palette-picker">
-          <button id="palette-btn" class="dock-btn" title="Choose Floral Palette">
-            <span id="active-palette-swatch" class="palette-swatch" style="background: linear-gradient(135deg, #ffb7c5, #ff69b4);"></span>
-            <span id="active-palette-name">Sakura</span>
+        <!-- Canvas Actions -->
+        <div class="dock-group">
+          <button id="undo-btn" class="dock-btn" title="Undo Last Bloom (Ctrl+Z)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7v6h6"></path>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+            </svg>
+            <span>Undo</span>
           </button>
-          <div id="palette-dropdown" class="palette-dropdown">
-            <!-- Dynamically populated -->
-          </div>
+          <button id="clear-btn" class="dock-btn" title="Clear Garden (Thumbs Up / C)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            <span>Clear</span>
+          </button>
         </div>
 
         <div class="dock-divider"></div>
 
         <!-- Mode Toggle -->
         <div class="dock-group">
-          <button id="mode-flower-btn" class="dock-btn active" title="Generative Watercolor Flower Ink">
-            <span>🌸 Flower</span>
-          </button>
-          <button id="mode-plain-btn" class="dock-btn" title="Plain Line Debug Mode">
-            <span>✏️ Line</span>
-          </button>
-          <button id="trigger-btn" class="dock-btn active" title="Click to toggle: Gesture Trigger vs Always Draw">
+          <button id="trigger-btn" class="dock-btn active" title="Toggle: Continuous Single Finger vs Point/Pinch">
             <span id="trigger-label">✨ Always Draw</span>
-          </button>
-        </div>
-
-        <div class="dock-divider"></div>
-
-        <!-- Canvas Actions -->
-        <div class="dock-group">
-          <button id="undo-btn" class="dock-btn icon-only" title="Undo Last Stroke (Ctrl+Z)" disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7v6h6"></path>
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-            </svg>
-          </button>
-          <button id="clear-btn" class="dock-btn icon-only" title="Clear Canvas (Thumbs Up Gesture / C)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            </svg>
           </button>
         </div>
 
@@ -159,16 +175,16 @@
           <div id="modal-icon-container" class="modal-icon-ring">
             <div class="spinner"></div>
           </div>
-          <h2 id="modal-title" class="modal-title">Starting AuraBloom</h2>
+          <h2 id="modal-title" class="modal-title">Welcome to AuraBloom Garden</h2>
           <p id="modal-desc" class="modal-description">
-            Initializing neural vision models and requesting camera access for real-time hand tracking.
+            Initializing neural vision models and camera access for real-time hand gesture botanical painting.
           </p>
           <div class="modal-btn-group">
             <button id="modal-btn" class="modal-btn">Allow Camera Access</button>
             <button id="modal-demo-btn" class="modal-btn secondary">Use Mouse / Touch Demo</button>
           </div>
           <div id="modal-help-tip" class="modal-help-tip" style="display: none;">
-            💡 <strong>Tip:</strong> In Chrome, click the site settings / lock icon on the left of the URL bar (<code>localhost:3000</code>) and set <strong>Camera</strong> to <strong>Allow</strong>.
+            💡 <strong>Tip:</strong> In Chrome, click the site settings / lock icon on the left of the URL bar and set <strong>Camera</strong> to <strong>Allow</strong>.
           </div>
         </div>
       </div>
