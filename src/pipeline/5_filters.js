@@ -123,18 +123,19 @@ export class HandMotionManager {
         // Initialize 21 landmark filters for this hand
         const filters = [];
         for (let i = 0; i < 21; i++) {
-          // Landmark 8 (Index tip) uses responsive tuning for precision drawing
+          // Landmark 8 (Index tip) and 4 (Thumb tip) tuned for silky smooth, jitter-free precision drawing
           if (i === 8 || i === 4) {
-            filters.push(new OneEuroFilter3D(1.0, 0.012, 1.0));
+            filters.push(new OneEuroFilter3D(0.7, 0.018, 1.2));
           } else {
-            filters.push(new OneEuroFilter3D(1.5, 0.006, 1.0));
+            filters.push(new OneEuroFilter3D(1.2, 0.008, 1.0));
           }
         }
         this.handFilters.set(hand.trackId, {
           filters,
           prevIndexTip: null,
           prevWrist: null,
-          prevTime: null
+          prevTime: null,
+          smoothedVelocity: { x: 0, y: 0, speed: 0, direction: 0 }
         });
       }
 
@@ -166,11 +167,17 @@ export class HandMotionManager {
 
       let tipVelocity = { x: 0, y: 0, speed: 0, direction: 0 };
       if (state.prevIndexTip) {
-        const vx = (indexTip.x - state.prevIndexTip.x) / dt;
-        const vy = (indexTip.y - state.prevIndexTip.y) / dt;
-        const speed = Math.hypot(vx, vy);
-        const direction = Math.atan2(vy, vx);
-        tipVelocity = { x: vx, y: vy, speed, direction };
+        const rawVx = (indexTip.x - state.prevIndexTip.x) / dt;
+        const rawVy = (indexTip.y - state.prevIndexTip.y) / dt;
+        
+        // Low-pass smooth the velocity vector to avoid jerkiness
+        const vAlpha = 0.4;
+        const sv = state.smoothedVelocity;
+        sv.x = sv.x * (1 - vAlpha) + rawVx * vAlpha;
+        sv.y = sv.y * (1 - vAlpha) + rawVy * vAlpha;
+        sv.speed = Math.hypot(sv.x, sv.y);
+        sv.direction = Math.atan2(sv.y, sv.x);
+        tipVelocity = { ...sv };
       }
 
       // Update state history
