@@ -1,5 +1,5 @@
 /**
- * App Orchestrator & Minimal Botanical Arrangement Manager
+ * App Orchestrator & Botanical Garden Manager
  * Links Stages 1 through 8 in a high-performance requestAnimationFrame loop.
  */
 
@@ -53,7 +53,10 @@ class App {
     this.toastIcon = document.getElementById('toast-icon');
 
     // UI Buttons
+    this.undoBtn = document.getElementById('undo-btn');
     this.clearBtn = document.getElementById('clear-btn');
+    this.triggerBtn = document.getElementById('trigger-btn');
+    this.triggerLabel = document.getElementById('trigger-label');
     this.skeletonBtn = document.getElementById('skeleton-btn');
     this.cameraFlipBtn = document.getElementById('camera-flip-btn');
     this.debugToggleBtn = document.getElementById('debug-toggle-btn');
@@ -73,8 +76,8 @@ class App {
     this.tracker = new HandTracker();
     this.motionManager = new HandMotionManager();
     this.gestureClassifier = new GestureClassifier();
-    this.actionDispatcher = new ActionDispatcher();
-    this.flowerRenderer = new FlowerRenderer(this.drawingCanvas);
+    this.actionDispatcher = new ActionDispatcher({ alwaysDraw: true });
+    this.flowerRenderer = new FlowerRenderer(this.drawingCanvas, { maxFlowers: 60 });
     this.skeletonRenderer = new SkeletonRenderer(this.skeletonCanvas);
     this.debugOverlay = new DebugOverlay(document.getElementById('debug-hud'));
     this.undoManager = new UndoManager();
@@ -87,7 +90,6 @@ class App {
     // Mouse / Touch Demo Mode State
     this.isDemoMode = false;
     this.isMouseDown = false;
-    this.lastMousePos = { x: 0, y: 0 };
 
     this.init();
   }
@@ -101,6 +103,7 @@ class App {
 
     // Select default flower
     this.selectFlower('allMix');
+    this.updateModeUI();
 
     // Wire up modal action buttons
     this.modalBtn.onclick = async () => {
@@ -122,8 +125,8 @@ class App {
     this.modalDemoBtn.onclick = () => {
       this.isDemoMode = true;
       this.hideModal();
-      this.setStatus('Interactive Arrangement (Mouse Mode)', 'ready');
-      this.showToast('🌸', 'Click & drag flowers to arrange, or click empty space to plant (max 5)');
+      this.setStatus('Interactive Mode (Mouse / Touch)', 'ready');
+      this.showToast('🌸', 'Drag mouse or finger to draw continuous floral trails!');
     };
 
     try {
@@ -213,43 +216,82 @@ class App {
     this.selectFlower(nextFlower.id);
   }
 
+  toggleDrawingMode() {
+    const newMode = this.flowerRenderer.toggleMode();
+    this.updateModeUI();
+    this.showToast(newMode === 'flower' ? '🌸' : '✨', newMode === 'flower' ? 'Floral Trail Mode' : 'Plain Drawing Mode');
+  }
+
+  updateModeUI() {
+    if (this.triggerLabel) {
+      this.triggerLabel.textContent = this.flowerRenderer.mode === 'flower' ? '🌸 Floral Trail' : '✨ Plain Trail';
+    }
+    if (this.triggerBtn) {
+      this.triggerBtn.classList.toggle('active', this.flowerRenderer.mode === 'flower');
+    }
+  }
+
   setupUIEventListeners() {
-    this.clearBtn.addEventListener('click', () => {
-      this.clearCanvas();
-    });
+    if (this.clearBtn) {
+      this.clearBtn.addEventListener('click', () => {
+        this.clearCanvas();
+      });
+    }
 
-    this.skeletonBtn.addEventListener('click', () => {
-      const showLines = this.skeletonRenderer.toggleSkeletonLines();
-      this.skeletonBtn.classList.toggle('active', showLines);
-      this.showToast(showLines ? '👁️' : '✨', showLines ? 'Skeleton Lines On' : 'Clean Garden View');
-    });
+    if (this.undoBtn) {
+      this.undoBtn.addEventListener('click', () => {
+        this.undoStroke();
+      });
+    }
 
-    this.debugToggleBtn.addEventListener('click', () => {
-      const isVisible = this.debugOverlay.toggle();
-      this.debugToggleBtn.classList.toggle('active', isVisible);
-    });
+    if (this.triggerBtn) {
+      this.triggerBtn.addEventListener('click', () => {
+        this.toggleDrawingMode();
+      });
+    }
 
-    this.cameraFlipBtn.addEventListener('click', async () => {
-      try {
-        this.setStatus('Switching Camera...', 'loading');
-        await this.cameraManager.switchCamera();
-        this.isDemoMode = false;
-        this.setStatus('Camera Active', 'ready');
-        this.showToast('📷', 'Camera Switched');
-      } catch (err) {
-        this.showToast('⚠️', 'Could not switch camera');
-      }
-    });
+    if (this.skeletonBtn) {
+      this.skeletonBtn.addEventListener('click', () => {
+        const showLines = this.skeletonRenderer.toggleSkeletonLines();
+        this.skeletonBtn.classList.toggle('active', showLines);
+        this.showToast(showLines ? '👁️' : '✨', showLines ? 'Skeleton Lines On' : 'Clean Garden View');
+      });
+    }
+
+    if (this.debugToggleBtn) {
+      this.debugToggleBtn.addEventListener('click', () => {
+        const isVisible = this.debugOverlay.toggle();
+        this.debugToggleBtn.classList.toggle('active', isVisible);
+      });
+    }
+
+    if (this.cameraFlipBtn) {
+      this.cameraFlipBtn.addEventListener('click', async () => {
+        try {
+          this.setStatus('Switching Camera...', 'loading');
+          await this.cameraManager.switchCamera();
+          this.isDemoMode = false;
+          this.setStatus('Camera Active', 'ready');
+          this.showToast('📷', 'Camera Switched');
+        } catch (err) {
+          this.showToast('⚠️', 'Could not switch camera');
+        }
+      });
+    }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'c') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        this.undoStroke();
+      } else if (e.key.toLowerCase() === 'c') {
         this.clearCanvas();
       } else if (e.key.toLowerCase() === 's') {
-        this.skeletonBtn.click();
+        this.skeletonBtn?.click();
       } else if (e.key.toLowerCase() === 'd') {
-        this.debugToggleBtn.click();
+        this.debugToggleBtn?.click();
       } else if (e.key.toLowerCase() === 'f') {
         this.cycleFlowerVariety();
+      } else if (e.key.toLowerCase() === 'm') {
+        this.toggleDrawingMode();
       }
     });
   }
@@ -263,14 +305,9 @@ class App {
       this.isMouseDown = true;
       const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-      this.lastMousePos = { x, y };
 
-      const res = this.flowerRenderer.handlePinchStart({ x, y }, this.currentFlowerId);
-      if (res.action === 'CREATE') {
-        this.showToast('🌸', `Planted ${res.flower.name} (${this.flowerRenderer.flowers.length}/${this.flowerRenderer.maxFlowers})`);
-      } else if (res.action === 'SELECT') {
-        this.showToast('🤏', `Selected ${res.flower.name}`);
-      }
+      this.flowerRenderer.startStroke('mouse', { x, y });
+      this.updateUndoState();
     };
 
     const handlePointerMove = (e) => {
@@ -278,7 +315,7 @@ class App {
       const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
 
       if (this.isMouseDown) {
-        this.flowerRenderer.handlePinchMove({ x, y });
+        this.flowerRenderer.addStrokePoint('mouse', { x, y });
       } else {
         const hit = this.flowerRenderer.setHoverPoint({ x, y });
         if (hit) {
@@ -290,7 +327,8 @@ class App {
     const handlePointerUp = () => {
       if (this.isMouseDown) {
         this.isMouseDown = false;
-        this.flowerRenderer.handlePinchEnd();
+        this.flowerRenderer.endStroke('mouse');
+        this.updateUndoState();
       }
     };
 
@@ -304,24 +342,21 @@ class App {
   }
 
   setupActionBindings() {
-    // 1. PINCH START: Create 1 Flower or Select Existing
-    this.actionDispatcher.on('PINCH_START', ({ point }) => {
-      const res = this.flowerRenderer.handlePinchStart(point, this.currentFlowerId);
-      if (res.action === 'CREATE') {
-        this.showToast('🌸', `Planted ${res.flower.name} (${this.flowerRenderer.flowers.length}/${this.flowerRenderer.maxFlowers})`);
-      } else if (res.action === 'SELECT') {
-        this.showToast('🤏', `Selected ${res.flower.name}`);
-      }
+    // 1. Continuous DRAW_START
+    this.actionDispatcher.on('DRAW_START', ({ trackId, point }) => {
+      this.flowerRenderer.startStroke(trackId, point);
+      this.updateUndoState();
     });
 
-    // 2. PINCH MOVE: Smooth Drag & Reposition
-    this.actionDispatcher.on('PINCH_MOVE', ({ point }) => {
-      this.flowerRenderer.handlePinchMove(point);
+    // 2. Continuous DRAW_MOVE (Real-time path tracking & distance-based blooming)
+    this.actionDispatcher.on('DRAW_MOVE', ({ trackId, point }) => {
+      this.flowerRenderer.addStrokePoint(trackId, point);
     });
 
-    // 3. PINCH END: Drop Flower
-    this.actionDispatcher.on('PINCH_END', () => {
-      this.flowerRenderer.handlePinchEnd();
+    // 3. Continuous DRAW_END
+    this.actionDispatcher.on('DRAW_END', ({ trackId }) => {
+      this.flowerRenderer.endStroke(trackId);
+      this.updateUndoState();
     });
 
     // 4. HOVER / OPEN PALM: Botanical Inspection
@@ -340,18 +375,28 @@ class App {
     // 6. CLEAR CANVAS: Closed Fist / Thumbs Up
     this.actionDispatcher.on('CLEAR_CANVAS', () => {
       this.clearCanvas();
-      this.showToast('🧹', 'Arrangement Cleared');
     });
   }
 
   clearCanvas() {
     this.flowerRenderer.clear();
-    this.showToast('🧹', 'Arrangement Cleared');
+    this.updateUndoState();
+    this.showToast('🧹', 'Garden Cleared');
   }
 
   undoStroke() {
-    this.flowerRenderer.initBalancedArrangement();
-    this.showToast('↩️', 'Arrangement Reset');
+    const success = this.flowerRenderer.undo();
+    if (success) {
+      this.showToast('↩️', 'Undo Last Stroke');
+    }
+    this.updateUndoState();
+  }
+
+  updateUndoState() {
+    if (this.undoBtn) {
+      const hasContent = this.flowerRenderer.flowers.length > 0 || this.flowerRenderer.completedStrokes.length > 0;
+      this.undoBtn.disabled = !hasContent;
+    }
   }
 
   showToast(icon, text) {
@@ -467,6 +512,9 @@ class App {
       });
 
       // Update Top Status Pill & Detection Banner
+      const flowerCount = this.flowerRenderer.flowers.length;
+      const maxFlowers = this.flowerRenderer.maxFlowers;
+
       if (this.cameraManager.isStreaming) {
         if (classifiedHands.length > 0) {
           const mainHand = classifiedHands[0];
@@ -477,32 +525,32 @@ class App {
             this.detectionPill.className = 'detection-pill detected';
             this.detectionPillText.textContent = `🟢 ${classifiedHands.length} Hand (${mainHand.handedness} • ${mainGesture} • ${conf}%)`;
           }
-          this.setStatus(`Arrangement Active • ${this.flowerRenderer.flowers.length}/${this.flowerRenderer.maxFlowers} Blooms`, 'ready');
+          this.setStatus(`Garden Active • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
         } else {
           if (this.detectionPill) {
             this.detectionPill.className = 'detection-pill searching';
             this.detectionPillText.textContent = '👀 Searching for hands...';
           }
-          this.setStatus(`Arrangement Ready • ${this.flowerRenderer.flowers.length}/${this.flowerRenderer.maxFlowers} Blooms`, 'ready');
+          this.setStatus(`Garden Ready • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
         }
       } else if (this.isDemoMode) {
         if (this.detectionPill) {
           this.detectionPill.className = 'detection-pill searching';
-          this.detectionPillText.textContent = `🎨 Interactive Mode (${this.flowerRenderer.flowers.length}/${this.flowerRenderer.maxFlowers} Flowers)`;
+          this.detectionPillText.textContent = `🎨 Interactive Mode (${flowerCount}/${maxFlowers} Blooms)`;
         }
       }
 
-      // 7. Stage 7: Action Dispatcher (Discrete pinch, drag, hover)
+      // 7. Stage 7: Action Dispatcher (Continuous drawing & gesture events)
       if (classifiedHands.length > 0) {
         this.actionDispatcher.process(classifiedHands, timestamp);
       }
 
-      // 8. Stage 8: Minimal Botanical Arrangement Rendering
+      // 8. Stage 8: Real-Time Continuous Floral Trail & Botanical Rendering
       this.flowerRenderer.render();
 
       // 9. Overlay: Skeleton & Gestural Cursor
       this.skeletonCanvas.getContext('2d').clearRect(0, 0, this.skeletonCanvas.width, this.skeletonCanvas.height);
-      this.skeletonRenderer.render(classifiedHands, { alwaysDraw: false });
+      this.skeletonRenderer.render(classifiedHands, { alwaysDraw: this.actionDispatcher.alwaysDraw });
 
       // 10. Telemetry & Diagnostics
       const inferenceTime = performance.now() - startTime;

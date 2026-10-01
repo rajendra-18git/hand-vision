@@ -1,19 +1,23 @@
 /**
- * Stage 7: Action Dispatcher & Mapping Layer
- * Translates recognized gestures into discrete flower arrangement actions:
- * - Pinch: Select existing flower or spawn 1 new flower with cooldown
- * - Move: Smoothly reposition selected flower
- * - Open Palm: Flower inspection and hover mode
- * - Fist (Held): Clear arrangement
- * - Peace Sign: Cycle flower variety
+ * Stage 7: Action Dispatcher & Continuous Gesture Mapping Layer
+ * Translates recognized hand gestures and continuous index finger coordinates
+ * into fluid real-time drawing actions:
+ * - DRAW_START / DRAW_MOVE / DRAW_END: Continuous stream for floral & line trails
+ * - CYCLE_FLOWER: Peace sign gesture (✌️)
+ * - CLEAR_CANVAS: Closed fist (✊) or Thumbs up (👍)
+ * - HOVER / INSPECT: Open palm (🖐️)
  */
 
 export class ActionDispatcher {
-  constructor() {
+  constructor(options = {}) {
     this.listeners = new Map();
     this.handStates = new Map();
-    this.lastSpawnTime = 0;
-    this.spawnCooldownMs = 1500; // 1.5s cooldown
+    this.alwaysDraw = options.alwaysDraw !== undefined ? options.alwaysDraw : true;
+    this.fistHoldDuration = 1000; // ms
+  }
+
+  setAlwaysDraw(enabled) {
+    this.alwaysDraw = !!enabled;
   }
 
   on(actionType, callback) {
@@ -45,11 +49,12 @@ export class ActionDispatcher {
 
       if (!this.handStates.has(hand.trackId)) {
         this.handStates.set(hand.trackId, {
+          isDrawing: false,
           previousGesture: 'none',
           gestureStartTime: timestamp,
-          isPinching: false,
           fistTriggered: false,
-          lastCycleTime: 0
+          lastCycleTime: 0,
+          lastPoint: null
         });
       }
 
@@ -63,85 +68,103 @@ export class ActionDispatcher {
       }
 
       const gestureDuration = timestamp - state.gestureStartTime;
-      const pinchPoint = hand.pinchCenter || hand.indexTip;
 
-      // 1. PINCH GESTURE: Grab or Create Exactly One Flower
-      if (recognizedGesture === 'pinch') {
-        if (!state.isPinching) {
-          state.isPinching = true;
-          this.emit('PINCH_START', {
+      // 1. CLEAR CANVAS GESTURES: Thumbs Up or Closed Fist held
+      if (recognizedGesture === 'thumbs_up' && gestureDuration >= 350 && !state.fistTriggered) {
+        state.fistTriggered = true;
+        if (state.isDrawing) {
+          state.isDrawing = false;
+          this.emit('DRAW_END', { trackId: hand.trackId, timestamp });
+        }
+        this.emit('CLEAR_CANVAS', { hand, trackId: hand.trackId, timestamp });
+        continue;
+      }
+
+      if (recognizedGesture === 'fist' && gestureDuration >= this.fistHoldDuration && !state.fistTriggered) {
+        state.fistTriggered = true;
+        if (state.isDrawing) {
+          state.isDrawing = false;
+          this.emit('DRAW_END', { trackId: hand.trackId, timestamp });
+        }
+        this.emit('CLEAR_CANVAS', { hand, trackId: hand.trackId, timestamp });
+        continue;
+      }
+
+      // 2. CYCLE FLOWER: Peace Sign (✌️) with 1.2s debounce
+      if (recognizedGesture === 'peace' && gestureDuration >= 300 && timestamp - state.lastCycleTime > 1200) {
+        state.lastCycleTime = timestamp;
+        if (state.isDrawing) {
+          state.isDrawing = false;
+          this.emit('DRAW_END', { trackId: hand.trackId, timestamp });
+        }
+        this.emit('CYCLE_FLOWER', { hand, trackId: hand.trackId, timestamp });
+        continue;
+      }
+
+      // 3. CONTINUOUS DRAWING CONDITION:
+      // In AlwaysDraw mode: any hand gesture except resting fist/thumbs_up/open_palm will draw.
+      // In strict gesture mode: pointing index or pinch triggers drawing.
+      const isPinching = recognizedGesture === 'pinch';
+      const isPointing = recognizedGesture === 'pointing';
+      const isResting = recognizedGesture === 'fist' || recognizedGesture === 'thumbs_up';
+
+      const shouldDraw = this.alwaysDraw
+        ? (!isResting && recognizedGesture !== 'open_palm')
+        : (isPointing || isPinching);
+
+      // Coordinate to use for pen trail
+      const currentPoint = isPinching
+        ? (hand.pinchCenter || hand.indexTip)
+        : hand.indexTip;
+
+      if (shouldDraw && currentPoint) {
+        if (!state.isDrawing) {
+          state.isDrawing = true;
+          state.lastPoint = currentPoint;
+          this.emit('DRAW_START', {
             hand,
             trackId: hand.trackId,
-            point: pinchPoint,
+            point: currentPoint,
             timestamp
           });
         } else {
-          this.emit('PINCH_MOVE', {
+          state.lastPoint = currentPoint;
+          this.emit('DRAW_MOVE', {
             hand,
             trackId: hand.trackId,
-            point: pinchPoint,
+            point: currentPoint,
             timestamp
           });
         }
       } else {
-        if (state.isPinching) {
-          state.isPinching = false;
-          this.emit('PINCH_END', {
+        if (state.isDrawing) {
+          state.isDrawing = false;
+          this.emit('DRAW_END', {
             hand,
             trackId: hand.trackId,
-            point: pinchPoint,
+            point: state.lastPoint || currentPoint,
+            timestamp
+          });
+        }
+
+        // Emit hover inspection if open palm
+        if (recognizedGesture === 'open_palm' && currentPoint) {
+          this.emit('HOVER', {
+            hand,
+            trackId: hand.trackId,
+            point: currentPoint,
+            gesture: 'open_palm',
             timestamp
           });
         }
       }
-
-      // 2. OPEN PALM / POINTING: Hover & Inspect
-      if (recognizedGesture === 'open_palm' || recognizedGesture === 'pointing') {
-        this.emit('HOVER', {
-          hand,
-          trackId: hand.trackId,
-          point: hand.indexTip,
-          gesture: recognizedGesture,
-          timestamp
-        });
-      }
-
-      // 3. CLOSED FIST (Held for 1.2s): Clear Arrangement
-      if (recognizedGesture === 'fist' && gestureDuration >= 1100 && !state.fistTriggered) {
-        state.fistTriggered = true;
-        this.emit('CLEAR_CANVAS', {
-          hand,
-          trackId: hand.trackId,
-          timestamp
-        });
-      }
-
-      // 4. THUMBS UP: Immediate Clear
-      if (recognizedGesture === 'thumbs_up' && gestureDuration >= 400 && !state.fistTriggered) {
-        state.fistTriggered = true;
-        this.emit('CLEAR_CANVAS', {
-          hand,
-          trackId: hand.trackId,
-          timestamp
-        });
-      }
-
-      // 5. PEACE SIGN (✌️): Cycle Flower Variety (1.2s debounce)
-      if (recognizedGesture === 'peace' && gestureDuration >= 350 && timestamp - state.lastCycleTime > 1200) {
-        state.lastCycleTime = timestamp;
-        this.emit('CYCLE_FLOWER', {
-          hand,
-          trackId: hand.trackId,
-          timestamp
-        });
-      }
     }
 
-    // Clean up hands that left the camera
+    // Clean up hands that left the camera view
     for (const [trackId, state] of this.handStates.entries()) {
       if (!activeTrackIds.has(trackId)) {
-        if (state.isPinching) {
-          this.emit('PINCH_END', { trackId });
+        if (state.isDrawing) {
+          this.emit('DRAW_END', { trackId, timestamp });
         }
         this.handStates.delete(trackId);
       }

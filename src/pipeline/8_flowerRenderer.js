@@ -1,11 +1,17 @@
 /**
- * Stage 8: Minimal, Elegant Botanical Floral Arrangement Engine
- * Displays 3-6 large, photorealistic flowers with minimal accent greenery.
- * Features discrete pinch creation, interactive drag-and-drop repositioning,
- * elegant on-demand botanical labels, and 60fps real-time blossoming.
+ * Stage 8: Real-Time Continuous Floral Trail & Botanical Rendering Engine
+ * 
+ * Features:
+ * - Continuous drawing along index finger path in real-time.
+ * - Distance-based flower placement along smooth Catmull-Rom splines.
+ * - Photorealistic transparent PNG flower assets with natural size/rotation jitter.
+ * - Configurable capacity (50-60+ flowers) that persist on canvas.
+ * - Dual Mode: 'flower' (botanical trail with stems & blossoms) & 'plain' (smooth glowing trail).
+ * - Smooth blossom pop animations, subtle leaves behind petals, and ambient pollen bursts.
  */
 
 import { FLOWER_COLLECTION, FLOWER_LIST } from '../render/palette.js';
+import { dist2D, catmullRom } from '../utils/geometry.js';
 
 function easeOutBack(x) {
   const c1 = 1.70158;
@@ -22,25 +28,27 @@ export class FlowerRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: true });
 
-    // Maximum flower limit (strict minimal arrangement: 3-6, default 5)
-    this.maxFlowers = 5;
+    // Mode: 'flower' (floral trail) | 'plain' (line drawing trail)
+    this.mode = options.mode || 'flower';
+
+    // Maximum active flowers on canvas (configurable: 50-60)
+    this.maxFlowers = options.maxFlowers || 60;
     this.activeFlowerId = 'allMix';
 
-    // Arrangement State
-    this.flowers = []; // Array of active flowers on screen
-    this.selectedFlower = null; // Currently grabbed / selected flower
-    this.hoveredFlower = null; // Currently hovered flower
-    this.hoverAlpha = 0;
-    this.isDragging = false;
-    this.dragOffset = { x: 0, y: 0 };
+    // Active in-flight strokes (trackId -> StrokeData)
+    this.activeStrokes = new Map();
 
-    // Creation Cooldown Management
-    this.lastCreationTime = 0;
-    this.creationCooldownMs = 1500; // 1.5s cooldown
+    // Completed strokes & permanent flowers
+    this.completedStrokes = [];
+    this.flowers = [];
+
+    // Hover & Selection state
+    this.hoveredFlower = null;
+    this.hoverAlpha = 0;
 
     // Ambient floating particles
     this.particles = [];
-    this.maxParticles = 120;
+    this.maxParticles = 140;
 
     // High-Resolution Transparent PNG Photographic Flower Assets
     this.images = {
@@ -54,8 +62,8 @@ export class FlowerRenderer {
       petal: this.loadImage('./assets/flowers/daisy_petal.png')
     };
 
-    // Pre-populate with an initial minimal 3-flower balanced arrangement
-    this.initBalancedArrangement();
+    // Pre-populate with initial natural welcome blooms
+    this.initWelcomeBlooms();
   }
 
   loadImage(src) {
@@ -71,22 +79,32 @@ export class FlowerRenderer {
     return img;
   }
 
-  initBalancedArrangement() {
+  initWelcomeBlooms() {
     const now = performance.now();
     const cx = (this.canvas.width || window.innerWidth) / 2;
     const cy = (this.canvas.height || window.innerHeight) / 2;
 
-    // Initial 3 flowers gracefully arranged
     this.flowers = [
-      this.createFlowerInstance('pinkDahlia', cx, cy - 20, 190, 0, now),
-      this.createFlowerInstance('purpleRose', cx - 140, cy + 50, 165, -0.4, now + 100),
-      this.createFlowerInstance('whiteDaisy', cx + 130, cy + 40, 175, 0.35, now + 200)
+      this.createFlowerInstance('pinkDahlia', cx - 110, cy - 20, 105, -0.2, now),
+      this.createFlowerInstance('purpleRose', cx, cy + 25, 95, 0.4, now + 100),
+      this.createFlowerInstance('whiteDaisy', cx + 115, cy - 10, 100, 0.1, now + 200)
     ];
   }
 
   resize(width, height) {
     this.canvas.width = width;
     this.canvas.height = height;
+  }
+
+  setMode(mode) {
+    if (mode === 'flower' || mode === 'plain') {
+      this.mode = mode;
+    }
+  }
+
+  toggleMode() {
+    this.mode = this.mode === 'flower' ? 'plain' : 'flower';
+    return this.mode;
   }
 
   setFlowerType(flowerId) {
@@ -111,22 +129,23 @@ export class FlowerRenderer {
 
   createFlowerInstance(flowerId, x, y, size, rotation, now = performance.now()) {
     const variety = FLOWER_COLLECTION[flowerId] || FLOWER_COLLECTION.pinkDahlia;
-    const finalSize = size || (165 + Math.random() * 35);
+    const baseScale = variety.defaultScale || 1.15;
+    const finalSize = size || ((85 + Math.random() * 25) * baseScale);
     const finalRot = rotation !== undefined ? rotation : Math.random() * Math.PI * 2;
 
-    // At most 1-2 small accent leaves tucked behind
+    // 1-2 small accent leaves tucked behind flowerhead
     const leaves = [];
-    if (Math.random() > 0.25) {
+    if (Math.random() > 0.2) {
       leaves.push({
-        angle: finalRot + 0.8 + Math.random() * 0.5,
-        size: finalSize * 0.32,
+        angle: finalRot + 0.7 + Math.random() * 0.5,
+        size: finalSize * 0.35,
         dist: finalSize * 0.42
       });
     }
-    if (Math.random() > 0.5) {
+    if (Math.random() > 0.4) {
       leaves.push({
-        angle: finalRot - 1.2 - Math.random() * 0.5,
-        size: finalSize * 0.28,
+        angle: finalRot - 1.1 - Math.random() * 0.5,
+        size: finalSize * 0.30,
         dist: finalSize * 0.40
       });
     }
@@ -144,67 +163,144 @@ export class FlowerRenderer {
       rotation: finalRot,
       leaves,
       birthTime: now,
-      bloomDuration: 400
+      bloomDuration: variety.bloomDuration || 350
     };
   }
 
-  // --- Discrete Gestural Interaction: Pinch & Move ---
+  // --- Real-time Continuous Stroke Lifecycle ---
 
-  handlePinchStart(point, flowerId = this.activeFlowerId) {
+  startStroke(trackId, point) {
+    if (!point) return;
     const now = performance.now();
-    const hitFlower = this.getFlowerAtPoint(point);
+    const activeVariety = this.resolveFlowerVariety(this.activeFlowerId);
 
-    if (hitFlower) {
-      // 1. Select and grab existing flower to move
-      this.selectedFlower = hitFlower;
-      this.isDragging = true;
-      this.dragOffset = {
-        x: hitFlower.x - point.x,
-        y: hitFlower.y - point.y
-      };
-      this.spawnPollenBurst(point, hitFlower.flowerId);
-      return { action: 'SELECT', flower: hitFlower };
+    const stroke = {
+      trackId,
+      mode: this.mode,
+      flowerId: activeVariety.id,
+      color: activeVariety.color || '#ec4899',
+      points: [{ x: point.x, y: point.y, time: now }],
+      distSinceLastFlower: 0,
+      nextFlowerDistance: 38 + Math.random() * 14,
+      flowerCount: 0,
+      startTime: now
+    };
+
+    this.activeStrokes.set(trackId, stroke);
+
+    // In flower mode, plant the opening bloom at the starting touch/point
+    if (this.mode === 'flower') {
+      this.spawnFlowerAtPoint(point.x, point.y, stroke.flowerId, now);
+      stroke.flowerCount++;
     }
 
-    // 2. Spawn 1 new flower at location if cooldown has passed
-    if (now - this.lastCreationTime < this.creationCooldownMs) {
-      return { action: 'COOLDOWN', remaining: Math.ceil((this.creationCooldownMs - (now - this.lastCreationTime)) / 1000) };
+    this.spawnPollenBurst(point, stroke.color);
+  }
+
+  addStrokePoint(trackId, point) {
+    if (!point) return;
+    const stroke = this.activeStrokes.get(trackId);
+    if (!stroke) {
+      this.startStroke(trackId, point);
+      return;
     }
 
-    this.lastCreationTime = now;
+    const now = performance.now();
+    const lastPoint = stroke.points[stroke.points.length - 1];
+    const d = dist2D(lastPoint, point);
 
-    // If max flowers reached, remove the oldest one to maintain clean 3-6 limit
-    if (this.flowers.length >= this.maxFlowers) {
+    // Filter out negligible micro-tremors (< 2px)
+    if (d < 2) return;
+
+    stroke.points.push({ x: point.x, y: point.y, time: now });
+    stroke.distSinceLastFlower += d;
+
+    // Continuous distance-based floral trail placement
+    if (stroke.mode === 'flower') {
+      while (stroke.distSinceLastFlower >= stroke.nextFlowerDistance) {
+        stroke.distSinceLastFlower -= stroke.nextFlowerDistance;
+        stroke.nextFlowerDistance = 38 + Math.random() * 14;
+
+        // Calculate slight perpendicular jitter for organic branching
+        const angle = Math.atan2(point.y - lastPoint.y, point.x - lastPoint.x);
+        const perpAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+        const perpOffset = (Math.random() - 0.5) * 8;
+
+        const spawnX = point.x + Math.cos(perpAngle) * perpOffset;
+        const spawnY = point.y + Math.sin(perpAngle) * perpOffset;
+
+        const variety = (this.activeFlowerId === 'allMix')
+          ? this.resolveFlowerVariety('allMix')
+          : FLOWER_COLLECTION[stroke.flowerId] || FLOWER_COLLECTION.pinkDahlia;
+
+        this.spawnFlowerAtPoint(spawnX, spawnY, variety.id, now);
+        stroke.flowerCount++;
+      }
+    } else {
+      // Plain line mode: emit subtle glowing sparkle particles along stroke
+      if (Math.random() > 0.4) {
+        this.spawnPollenBurst(point, stroke.color, 1);
+      }
+    }
+  }
+
+  endStroke(trackId) {
+    const stroke = this.activeStrokes.get(trackId);
+    if (!stroke) return;
+
+    this.activeStrokes.delete(trackId);
+
+    // If stroke was a fast tap with no movement in flower mode, guarantee at least 1 flower
+    if (stroke.mode === 'flower' && stroke.flowerCount === 0 && stroke.points.length > 0) {
+      const pt = stroke.points[0];
+      this.spawnFlowerAtPoint(pt.x, pt.y, stroke.flowerId, performance.now());
+      stroke.flowerCount++;
+    }
+
+    if (stroke.points.length > 1) {
+      this.completedStrokes.push(stroke);
+      // Keep completed strokes history bounded
+      if (this.completedStrokes.length > 30) {
+        this.completedStrokes.shift();
+      }
+    }
+  }
+
+  spawnFlowerAtPoint(x, y, flowerId, now = performance.now()) {
+    const newFlower = this.createFlowerInstance(flowerId, x, y, null, undefined, now);
+    this.flowers.push(newFlower);
+
+    // Maintain configurable max flowers limit (40-60)
+    if (this.flowers.length > this.maxFlowers) {
       this.flowers.shift();
     }
 
-    const variety = this.resolveFlowerVariety(flowerId);
-    const newFlower = this.createFlowerInstance(variety.id, point.x, point.y, null, undefined, now);
-    this.flowers.push(newFlower);
-
-    this.selectedFlower = newFlower;
-    this.isDragging = true;
-    this.dragOffset = { x: 0, y: 0 };
-
-    this.spawnPollenBurst(point, variety.id);
-    return { action: 'CREATE', flower: newFlower };
+    this.spawnPollenBurst({ x, y }, FLOWER_COLLECTION[flowerId]?.color || '#ec4899', 5);
+    return newFlower;
   }
 
-  handlePinchMove(point) {
-    if (this.isDragging && this.selectedFlower) {
-      const margin = this.selectedFlower.size * 0.4;
-      const maxX = (this.canvas.width || window.innerWidth) - margin;
-      const maxY = (this.canvas.height || window.innerHeight) - margin;
-
-      // Smoothly reposition flower clamped inside canvas
-      this.selectedFlower.x = Math.max(margin, Math.min(maxX, point.x + this.dragOffset.x));
-      this.selectedFlower.y = Math.max(margin, Math.min(maxY, point.y + this.dragOffset.y));
+  spawnPollenBurst(point, color = '#fbbf24', count = 6) {
+    for (let i = 0; i < count; i++) {
+      if (this.particles.length >= this.maxParticles) {
+        this.particles.shift();
+      }
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 20 + Math.random() * 60;
+      this.particles.push({
+        x: point.x,
+        y: point.y,
+        vx: Math.cos(angle) * (speed * 0.03),
+        vy: Math.sin(angle) * (speed * 0.03) - 0.2,
+        size: 2 + Math.random() * 3,
+        color: color,
+        opacity: 0.9,
+        life: 1.0,
+        decay: 0.015 + Math.random() * 0.02
+      });
     }
   }
 
-  handlePinchEnd() {
-    this.isDragging = false;
-  }
+  // --- Hover & Hit Testing ---
 
   setHoverPoint(point) {
     if (!point) {
@@ -213,45 +309,21 @@ export class FlowerRenderer {
     }
     const hit = this.getFlowerAtPoint(point);
     this.hoveredFlower = hit;
-    if (hit && !this.selectedFlower) {
-      this.selectedFlower = hit;
-    }
     return hit;
   }
 
   getFlowerAtPoint(point) {
-    // Search top-most flower under cursor
     for (let i = this.flowers.length - 1; i >= 0; i--) {
       const fl = this.flowers[i];
       const dist = Math.hypot(point.x - fl.x, point.y - fl.y);
-      if (dist <= fl.size * 0.52) {
+      if (dist <= fl.size * 0.5) {
         return fl;
       }
     }
     return null;
   }
 
-  spawnPollenBurst(point, flowerId) {
-    const variety = FLOWER_COLLECTION[flowerId] || FLOWER_COLLECTION.pinkDahlia;
-    for (let i = 0; i < 8; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 40 + Math.random() * 80;
-      this.particles.push({
-        type: 'pollen',
-        x: point.x,
-        y: point.y,
-        vx: Math.cos(angle) * (speed * 0.04),
-        vy: Math.sin(angle) * (speed * 0.04) - 0.4,
-        size: 2 + Math.random() * 3,
-        color: variety.color || '#fbbf24',
-        opacity: 1.0,
-        life: 1.0,
-        decay: 0.012 + Math.random() * 0.015
-      });
-    }
-  }
-
-  // --- Physics Simulation ---
+  // --- Particle Physics ---
 
   updateParticles() {
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -267,7 +339,7 @@ export class FlowerRenderer {
     }
   }
 
-  // --- Main Rendering Loop ---
+  // --- Main Render Pipeline ---
 
   render() {
     const now = performance.now();
@@ -276,52 +348,85 @@ export class FlowerRenderer {
     // 1. Clear Drawing Canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 2. Render Subtle Background Connecting Branches
-    this.drawSubtleArrangementBranch(this.ctx);
+    // 2. Render Completed & Active Connecting Stem Trails
+    this.renderStrokeTrails(this.ctx);
 
-    // 3. Render Minimal Leaves (Strictly Behind Flowers)
-    this.drawArrangementLeaves(this.ctx, now);
+    // 3. Render Leaves Behind Flower Heads
+    this.renderLeaves(this.ctx, now);
 
-    // 4. Render 3-6 Large Photorealistic Flowers
-    this.drawArrangementFlowers(this.ctx, now);
+    // 4. Render Photorealistic Blossoms
+    this.renderFlowers(this.ctx, now);
 
-    // 5. Render Elegant Botanical Name Labels for Selected/Hovered Flower
-    this.drawElegantFlowerLabel(this.ctx);
+    // 5. Render Hover Labels
+    this.renderHoverLabel(this.ctx);
 
     // 6. Render Floating Pollen Particles
     this.renderParticles(this.ctx);
   }
 
-  drawSubtleArrangementBranch(ctx) {
-    if (this.flowers.length < 2) return;
+  renderStrokeTrails(ctx) {
+    const allStrokes = [...this.completedStrokes, ...Array.from(this.activeStrokes.values())];
 
-    ctx.save();
-    ctx.strokeStyle = 'rgba(46, 125, 50, 0.35)';
-    ctx.lineWidth = 2.0;
-    ctx.lineCap = 'round';
+    for (const stroke of allStrokes) {
+      const pts = stroke.points;
+      if (!pts || pts.length < 2) continue;
 
-    ctx.beginPath();
-    ctx.moveTo(this.flowers[0].x, this.flowers[0].y);
-    for (let i = 1; i < this.flowers.length; i++) {
-      const prev = this.flowers[i - 1];
-      const curr = this.flowers[i];
-      const midX = (prev.x + curr.x) / 2 + (i % 2 === 0 ? 15 : -15);
-      const midY = (prev.y + curr.y) / 2 + (i % 2 === 0 ? -15 : 15);
-      ctx.quadraticCurveTo(midX, midY, curr.x, curr.y);
+      ctx.save();
+
+      if (stroke.mode === 'flower') {
+        // Natural organic green stem connecting the blossoms
+        ctx.strokeStyle = 'rgba(46, 125, 50, 0.45)';
+        ctx.lineWidth = 3.0;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 4;
+      } else {
+        // Plain Mode: Vibrant glowing neon line trail
+        ctx.strokeStyle = stroke.color || '#38bdf8';
+        ctx.lineWidth = 5.0;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = stroke.color || '#38bdf8';
+        ctx.shadowBlur = 12;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+
+      if (pts.length === 2) {
+        ctx.lineTo(pts[1].x, pts[1].y);
+      } else {
+        // Smooth Catmull-Rom spline curves through finger path
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[Math.max(0, i - 1)];
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+          const steps = 4;
+          for (let s = 1; s <= steps; s++) {
+            const t = s / steps;
+            const pt = catmullRom(p0, p1, p2, p3, t);
+            ctx.lineTo(pt.x, pt.y);
+          }
+        }
+      }
+
+      ctx.stroke();
+      ctx.restore();
     }
-    ctx.stroke();
-    ctx.restore();
   }
 
-  drawArrangementLeaves(ctx, now) {
+  renderLeaves(ctx, now) {
     const leafImg = this.images.leaf;
 
     for (const fl of this.flowers) {
+      if (!fl.leaves || fl.leaves.length === 0) continue;
+
       const elapsed = now - fl.birthTime;
       const progress = Math.min(1.0, Math.max(0, elapsed / fl.bloomDuration));
       const bloom = easeOutBack(progress);
-
-      if (!fl.leaves || fl.leaves.length === 0) continue;
 
       for (const leaf of fl.leaves) {
         const lx = fl.x + Math.cos(leaf.angle) * (leaf.dist * bloom);
@@ -333,10 +438,10 @@ export class FlowerRenderer {
         ctx.rotate(leaf.angle);
 
         ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-        ctx.shadowBlur = 6 * bloom;
+        ctx.shadowBlur = 5 * bloom;
 
         if (leafImg && leafImg.loaded) {
-          ctx.globalAlpha = Math.min(0.88, progress * 1.2);
+          ctx.globalAlpha = Math.min(0.85, progress * 1.2);
           ctx.drawImage(leafImg, -lSize * 0.5, -lSize * 0.8, lSize, lSize);
         }
 
@@ -345,7 +450,7 @@ export class FlowerRenderer {
     }
   }
 
-  drawArrangementFlowers(ctx, now) {
+  renderFlowers(ctx, now) {
     for (const fl of this.flowers) {
       const elapsed = now - fl.birthTime;
       const progress = Math.min(1.0, Math.max(0, elapsed / fl.bloomDuration));
@@ -353,27 +458,27 @@ export class FlowerRenderer {
 
       const size = fl.size * bloom;
       const img = this.images[fl.flowerId] || this.images.pinkDahlia;
-      const isSelected = (this.selectedFlower === fl || this.hoveredFlower === fl);
+      const isHovered = (this.hoveredFlower === fl);
 
       ctx.save();
       ctx.translate(fl.x, fl.y);
       ctx.rotate(fl.rotation);
 
-      // Soft natural photographic drop shadow
-      ctx.shadowColor = isSelected ? 'rgba(236, 72, 153, 0.45)' : 'rgba(0, 0, 0, 0.35)';
-      ctx.shadowBlur = isSelected ? 18 : 10 * bloom;
-      ctx.shadowOffsetY = 4 * bloom;
+      // Soft natural drop shadow
+      ctx.shadowColor = isHovered ? 'rgba(236, 72, 153, 0.55)' : 'rgba(0, 0, 0, 0.32)';
+      ctx.shadowBlur = isHovered ? 16 : 8 * bloom;
+      ctx.shadowOffsetY = 3 * bloom;
 
       if (img && img.loaded) {
-        ctx.globalAlpha = Math.min(1.0, progress * 1.5);
+        ctx.globalAlpha = Math.min(1.0, progress * 1.4);
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
       }
 
-      // Subtle glowing halo ring if grabbed or selected
-      if (isSelected) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      // Highlight ring when hovered
+      if (isHovered) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 2;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
         ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.arc(0, 0, size * 0.52, 0, Math.PI * 2);
@@ -384,53 +489,47 @@ export class FlowerRenderer {
     }
   }
 
-  // --- Display Name Label on Selected/Hovered Flower ---
-
-  drawElegantFlowerLabel(ctx) {
-    const active = this.selectedFlower || this.hoveredFlower;
-
-    if (active) {
-      this.hoverAlpha = Math.min(1.0, this.hoverAlpha + 0.1);
+  renderHoverLabel(ctx) {
+    if (this.hoveredFlower) {
+      this.hoverAlpha = Math.min(1.0, this.hoverAlpha + 0.12);
     } else {
-      this.hoverAlpha = Math.max(0.0, this.hoverAlpha - 0.1);
+      this.hoverAlpha = Math.max(0.0, this.hoverAlpha - 0.12);
     }
 
-    if (this.hoverAlpha <= 0.02 || !active) return;
+    if (this.hoverAlpha <= 0.02 || !this.hoveredFlower) return;
 
+    const fl = this.hoveredFlower;
     ctx.save();
     ctx.globalAlpha = this.hoverAlpha;
 
-    const labelX = active.x;
-    const labelY = active.y + active.size * 0.52 + 14;
-    const cardWidth = 180;
-    const cardHeight = 44;
+    const labelX = fl.x;
+    const labelY = fl.y + fl.size * 0.52 + 12;
+    const cardWidth = 170;
+    const cardHeight = 40;
 
-    // Centered label under the flower
     const rx = labelX - cardWidth / 2;
     const ry = labelY;
 
     // Translucent glass pill
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.beginPath();
-    ctx.roundRect(rx, ry, cardWidth, cardHeight, 12);
+    ctx.roundRect(rx, ry, cardWidth, cardHeight, 10);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Flower Common Name
-    ctx.font = '600 13px "Plus Jakarta Sans", sans-serif';
+    ctx.font = '600 12px "Plus Jakarta Sans", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText(active.name || 'Botanical Bloom', labelX, ry + 18);
+    ctx.fillText(fl.name || 'Botanical Bloom', labelX, ry + 16);
 
-    // Botanical Binomial Name
-    ctx.font = 'italic 400 11px "Plus Jakarta Sans", sans-serif';
+    ctx.font = 'italic 400 10px "Plus Jakarta Sans", sans-serif';
     ctx.fillStyle = '#93c5fd';
-    ctx.fillText(active.scientificName || 'Flora', labelX, ry + 33);
+    ctx.fillText(fl.scientificName || 'Flora', labelX, ry + 30);
 
     ctx.restore();
   }
@@ -450,28 +549,28 @@ export class FlowerRenderer {
     }
   }
 
-  // Clear arrangement
+  // --- Canvas Management & Undo ---
+
   clear() {
     this.flowers = [];
-    this.selectedFlower = null;
-    this.hoveredFlower = null;
+    this.completedStrokes = [];
+    this.activeStrokes.clear();
     this.particles = [];
+    this.hoveredFlower = null;
   }
 
-  // Backward compatibility methods
-  startStroke(trackId, point) {
-    return this.handlePinchStart(point);
-  }
-
-  addStrokePoint(trackId, point) {
-    return this.handlePinchMove(point);
-  }
-
-  endStroke(trackId) {
-    return this.handlePinchEnd();
-  }
-
-  restoreStrokes() {
-    this.initBalancedArrangement();
+  undo() {
+    if (this.completedStrokes.length > 0) {
+      const removedStroke = this.completedStrokes.pop();
+      // Remove flowers created by this stroke
+      if (removedStroke.flowerCount > 0) {
+        this.flowers.splice(-removedStroke.flowerCount, removedStroke.flowerCount);
+      }
+      return true;
+    } else if (this.flowers.length > 0) {
+      this.flowers.pop();
+      return true;
+    }
+    return false;
   }
 }
