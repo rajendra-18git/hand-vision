@@ -1,32 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>AuraBloom — Realistic Interactive Botanical Garden</title>
-    <meta name="description" content="Realistic interactive 3D flower garden powered by MediaPipe Vision AI hand tracking and high-resolution botanical photographic assets." />
-    <link rel="stylesheet" href="/src/style.css" />
+    <title>AuraBloom Studio — AI Vision Botanical Interactive Platform</title>
+    <meta name="description" content="Production-ready AI vision gesture studio and photorealistic botanical generative platform with Glassmorphism 2.0 aesthetics." />
+    
+    <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app">
-      <!-- Viewport Canvas & Video Layering -->
-      <div class="viewport-container" id="viewport">
-        <!-- 1. Native Mirrored Hardware Video Preview -->
-        <video id="webcam-video" playsinline muted autoplay></video>
-        <!-- 2. Permanent & In-Flight Photorealistic Flower Drawing Canvas -->
-        <canvas id="drawing-canvas"></canvas>
-        <!-- 3. Skeleton & Interactive Cursor Overlay -->
-        <canvas id="skeleton-canvas"></canvas>
-      </div>
+    <!-- Background Atmospheric Layer & Dynamic Soft Blurs -->
+    <div class="glass-atmosphere" aria-hidden="true">
+      <div class="glass-orb orb-1"></div>
+      <div class="glass-orb orb-2"></div>
+      <div class="glass-orb orb-3"></div>
+      <div class="glass-grid-overlay"></div>
+    </div>
 
-      <!-- Top Header HUD -->
-      <header class="header-hud">
-        <div class="brand-badge">
-          <div class="brand-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <div id="app" class="app-layout">
+      <!-- 1. Fixed Glass Sidebar Navigation -->
+      <aside class="glass-sidebar" id="main-sidebar" aria-label="Main Navigation">
+        <div class="sidebar-brand">
+          <div class="brand-logo-gem">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2v8"></path>
               <path d="m4.93 10.93 1.41 1.41"></path>
               <path d="M2 18h2"></path>
@@ -37,159 +38,834 @@
               <path d="M16 18a4 4 0 0 0-8 0"></path>
             </svg>
           </div>
-          <div class="brand-text-col">
-            <span class="brand-title">AuraBloom Garden</span>
-            <span class="brand-subtitle">Interactive Botanical Vision</span>
+          <div class="brand-meta">
+            <span class="brand-title">AuraBloom</span>
+            <span class="brand-badge-pill">STUDIO v2.4</span>
           </div>
         </div>
 
-        <!-- Flower Selection Ribbon -->
-        <div class="flower-ribbon" id="flower-ribbon" aria-label="Botanical Flower Selector">
-          <!-- Populated dynamically via main.js -->
-        </div>
-
-        <div class="header-status">
-          <div id="detection-pill" class="detection-pill searching">
-            <span class="detection-pulse-dot"></span>
-            <span id="detection-pill-text">👀 Searching for hands...</span>
-          </div>
-          <div id="status-pill" class="status-pill">
-            <span class="status-dot loading"></span>
-            <span id="status-text">Initializing Vision AI...</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- Botanical Info Card HUD -->
-      <aside class="botanical-card-hud" id="botanical-card-hud">
-        <div class="botanical-card-header">
-          <div class="flower-avatar" id="botanical-avatar">🌸</div>
-          <div class="botanical-title-group">
-            <h3 id="botanical-name">Botanical Garden Mix</h3>
-            <span class="botanical-binomial" id="botanical-binomial">Flora Varietate</span>
-          </div>
-        </div>
-        <div class="botanical-meta-row">
-          <span class="meta-tag" id="botanical-family">Diverse Garden</span>
-          <span class="meta-tag active" id="botanical-mode">Active Selection</span>
-        </div>
-        <p class="botanical-description" id="botanical-desc">
-          A rich, vibrant tapestry featuring Dahlias, Purple Roses, Frangipani, African Daisies, and Chamomile.
-        </p>
-      </aside>
-
-      <!-- Gesture Guide Quick-Card -->
-      <div class="gesture-guide-banner">
-        <span class="guide-title">Gestures Guide</span>
-        <div class="guide-item">
-          <span>☝️ Point / Drag</span>
-          <span class="guide-pill">Plant Cascade</span>
-        </div>
-        <div class="guide-item">
-          <span>🖐️ Open Palm</span>
-          <span class="guide-pill">Blossom Burst</span>
-        </div>
-        <div class="guide-item">
-          <span>✌️ Peace Sign</span>
-          <span class="guide-pill">Cycle Flowers</span>
-        </div>
-        <div class="guide-item">
-          <span>👍 Thumbs Up</span>
-          <span class="guide-pill">Clear Garden</span>
-        </div>
-      </div>
-
-      <!-- Telemetry Debug HUD -->
-      <div id="debug-hud" class="debug-hud"></div>
-
-      <!-- Action Toast Banner -->
-      <div id="action-toast" class="action-toast">
-        <span id="toast-icon">✨</span>
-        <span id="toast-text">Garden Cleared</span>
-      </div>
-
-      <!-- Bottom Control Dock -->
-      <nav class="control-dock" aria-label="Drawing Tools">
-        <!-- Canvas Actions -->
-        <div class="dock-group">
-          <button id="undo-btn" class="dock-btn" title="Undo Last Bloom (Ctrl+Z)" disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7v6h6"></path>
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+        <nav class="sidebar-nav">
+          <div class="nav-group-label">WORKSPACE</div>
+          <button class="nav-item active" data-view="studio" id="nav-tab-studio">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
             </svg>
-            <span>Undo</span>
+            <span class="nav-label">Interactive Studio</span>
+            <span class="nav-badge live">LIVE</span>
           </button>
-          <button id="clear-btn" class="dock-btn" title="Clear Garden (Thumbs Up / C)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+
+          <button class="nav-item" data-view="analytics" id="nav-tab-analytics">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
             </svg>
-            <span>Clear</span>
+            <span class="nav-label">Telemetry & Data</span>
           </button>
-        </div>
 
-        <div class="dock-divider"></div>
-
-        <!-- Mode Toggle -->
-        <div class="dock-group">
-          <button id="trigger-btn" class="dock-btn active" title="Toggle: Continuous Single Finger vs Point/Pinch">
-            <span id="trigger-label">✨ Always Draw</span>
+          <button class="nav-item" data-view="library" id="nav-tab-library">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span class="nav-label">Botanical Library</span>
+            <span class="nav-badge count" id="specimen-count-badge">6</span>
           </button>
-        </div>
 
-        <div class="dock-divider"></div>
-
-        <!-- Vision & Camera Toggles -->
-        <div class="dock-group">
-          <button id="skeleton-btn" class="dock-btn icon-only" title="Toggle Skeleton Lines (S)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="nav-item" data-view="gestures" id="nav-tab-gestures">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
               <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
               <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
               <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
             </svg>
+            <span class="nav-label">Gesture Matrix</span>
           </button>
-          <button id="camera-flip-btn" class="dock-btn icon-only" title="Switch Camera (Front/Rear)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
-              <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+
+          <div class="nav-group-label">PREFERENCES</div>
+          <button class="nav-item" data-view="settings" id="nav-tab-settings">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"></circle>
-              <path d="m18 22-3-3 3-3"></path>
-              <path d="m6 2 3 3-3 3"></path>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
+            <span class="nav-label">Studio Engine</span>
           </button>
-          <button id="debug-toggle-btn" class="dock-btn icon-only active" title="Toggle Telemetry HUD (D)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="18" height="18" x="3" y="3" rx="2"></rect>
-              <path d="M3 9h18"></path>
-              <path d="M9 21V9"></path>
+        </nav>
+
+        <!-- Sidebar Telemetry Mini-Card -->
+        <div class="sidebar-status-card">
+          <div class="status-card-header">
+            <span class="status-card-title">ENGINE HEALTH</span>
+            <span class="engine-indicator green" id="sidebar-engine-dot"></span>
+          </div>
+          <div class="status-metric-row">
+            <span class="metric-key">Vision Engine</span>
+            <span class="metric-val" id="sidebar-vision-status">Ready</span>
+          </div>
+          <div class="status-metric-row">
+            <span class="metric-key">Canvas Blooms</span>
+            <span class="metric-val highlight" id="sidebar-blooms-count">0 / 60</span>
+          </div>
+          <div class="status-progress-bar">
+            <div class="progress-fill" id="sidebar-blooms-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Sidebar User Footer -->
+        <div class="sidebar-user-footer">
+          <div class="user-avatar-glass">🌸</div>
+          <div class="user-details">
+            <span class="user-name">Botanical Artist</span>
+            <span class="user-plan">Pro Visualizer</span>
+          </div>
+          <button class="icon-btn-subtle" id="shortcuts-modal-btn" title="Keyboard Shortcuts (?)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
           </button>
         </div>
-      </nav>
+      </aside>
 
-      <!-- Loading / Permission Modal -->
+      <!-- 2. Main Content Wrapper -->
+      <main class="main-viewport-shell">
+        <!-- Top Glass Header / Navbar -->
+        <header class="glass-navbar">
+          <div class="navbar-left">
+            <button class="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle Navigation Menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </button>
+            <div class="breadcrumbs">
+              <span class="breadcrumb-root">AuraBloom</span>
+              <span class="breadcrumb-separator">/</span>
+              <span class="breadcrumb-current" id="header-view-title">Interactive Studio</span>
+            </div>
+          </div>
+
+          <!-- Command Palette / Specimen Search Input -->
+          <div class="navbar-center">
+            <div class="command-search-bar" id="search-bar-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="global-specimen-search" placeholder="Search flowers, gestures, presets... (Press /)" autocomplete="off" />
+              <kbd class="search-shortcut">/</kbd>
+              <div class="search-dropdown-menu" id="search-dropdown" style="display: none;">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+          </div>
+
+          <div class="navbar-right">
+            <!-- Detection Pill Indicator -->
+            <div id="detection-pill" class="glass-pill-badge searching" title="Real-time Hand Detection State">
+              <span class="detection-pulse-dot"></span>
+              <span id="detection-pill-text">Searching hands...</span>
+            </div>
+
+            <!-- Status Pill Indicator -->
+            <div id="status-pill" class="glass-pill-badge">
+              <span class="status-dot loading"></span>
+              <span id="status-text">Initializing AI...</span>
+            </div>
+
+            <!-- Export Snapshot CTA -->
+            <button class="glass-action-btn primary" id="export-snapshot-btn" title="Export High-Res Botanical Artwork">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Export</span>
+            </button>
+
+            <!-- Theme Toggle Button -->
+            <button class="glass-icon-btn" id="theme-toggle-btn" title="Switch Glass Appearance (Light/Dark)">
+              <svg class="theme-sun-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- View Container Shell -->
+        <div class="views-wrapper">
+          <!-- ==================== VIEW 1: INTERACTIVE STUDIO ==================== -->
+          <section class="view-panel active" id="view-studio">
+            <!-- Studio Viewport Canvas Stack -->
+            <div class="viewport-container" id="viewport">
+              <video id="webcam-video" playsinline muted autoplay></video>
+              <canvas id="drawing-canvas"></canvas>
+              <canvas id="skeleton-canvas"></canvas>
+            </div>
+
+            <!-- Floating Top HUD: Specimen Selection Ribbon -->
+            <div class="studio-top-ribbon-bar">
+              <div class="flower-ribbon" id="flower-ribbon" aria-label="Botanical Flower Selector">
+                <!-- Injected dynamically via main.js -->
+              </div>
+            </div>
+
+            <!-- Elevated Botanical Card HUD -->
+            <aside class="botanical-card-hud" id="botanical-card-hud">
+              <div class="botanical-card-header">
+                <div class="flower-avatar" id="botanical-avatar">🌸</div>
+                <div class="botanical-title-group">
+                  <h3 id="botanical-name">Botanical Garden Mix</h3>
+                  <span class="botanical-binomial" id="botanical-binomial">Flora Varietate</span>
+                </div>
+              </div>
+              <div class="botanical-meta-row">
+                <span class="meta-tag" id="botanical-family">Diverse Garden</span>
+                <span class="meta-tag active" id="botanical-mode">Active Selection</span>
+              </div>
+              <p class="botanical-description" id="botanical-desc">
+                A rich, vibrant tapestry featuring Dahlias, Purple Roses, Frangipani, African Daisies, and Chamomile.
+              </p>
+            </aside>
+
+            <!-- Gesture Guide Floating Card -->
+            <div class="gesture-guide-banner" id="gesture-guide-banner">
+              <div class="guide-header">
+                <span class="guide-title">Gestures Guide</span>
+                <span class="guide-badge">AI Active</span>
+              </div>
+              <div class="guide-item">
+                <span class="guide-label"><span class="gesture-icon">☝️</span> Point / Drag</span>
+                <span class="guide-pill">Plant Cascade</span>
+              </div>
+              <div class="guide-item">
+                <span class="guide-label"><span class="gesture-icon">🖐️</span> Open Palm</span>
+                <span class="guide-pill">Inspect & Bloom</span>
+              </div>
+              <div class="guide-item">
+                <span class="guide-label"><span class="gesture-icon">✌️</span> Peace Sign</span>
+                <span class="guide-pill">Cycle Flowers</span>
+              </div>
+              <div class="guide-item">
+                <span class="guide-label"><span class="gesture-icon">👍</span> Thumbs Up</span>
+                <span class="guide-pill">Clear Garden</span>
+              </div>
+            </div>
+
+            <!-- Telemetry Debug Floating HUD -->
+            <div id="debug-hud" class="debug-hud"></div>
+
+            <!-- Action Toast Notification Banner -->
+            <div id="action-toast" class="action-toast" role="status" aria-live="polite">
+              <span id="toast-icon">✨</span>
+              <span id="toast-text">Garden Initialized</span>
+            </div>
+
+            <!-- Bottom Floating Control Dock -->
+            <nav class="control-dock" aria-label="Studio Drawing Controls">
+              <!-- Canvas Actions -->
+              <div class="dock-group">
+                <button id="undo-btn" class="dock-btn" title="Undo Last Bloom (Ctrl+Z)" disabled>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v6h6"></path>
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                  </svg>
+                  <span>Undo</span>
+                </button>
+                <button id="clear-btn" class="dock-btn" title="Clear Garden (Thumbs Up / C)">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                  <span>Clear</span>
+                </button>
+              </div>
+
+              <div class="dock-divider"></div>
+
+              <!-- Mode Toggle -->
+              <div class="dock-group">
+                <button id="trigger-btn" class="dock-btn active" title="Toggle: Floral Trail vs Plain Trail (M)">
+                  <span id="trigger-label">🌸 Floral Trail</span>
+                </button>
+              </div>
+
+              <div class="dock-divider"></div>
+
+              <!-- Vision & Camera Toggles -->
+              <div class="dock-group">
+                <button id="skeleton-btn" class="dock-btn icon-only" title="Toggle Skeleton Lines Overlay (S)">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+                    <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+                    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+                    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+                  </svg>
+                </button>
+                <button id="camera-flip-btn" class="dock-btn icon-only" title="Switch Camera Device">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                    <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="m18 22-3-3 3-3"></path>
+                    <path d="m6 2 3 3-3 3"></path>
+                  </svg>
+                </button>
+                <button id="debug-toggle-btn" class="dock-btn icon-only active" title="Toggle Telemetry HUD (D)">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                    <path d="M3 9h18"></path>
+                    <path d="M9 21V9"></path>
+                  </svg>
+                </button>
+              </div>
+            </nav>
+          </section>
+
+          <!-- ==================== VIEW 2: TELEMETRY & ANALYTICS ==================== -->
+          <section class="view-panel" id="view-analytics">
+            <div class="panel-content-scroll">
+              <div class="section-hero-header">
+                <div>
+                  <h1 class="hero-heading">Vision Telemetry & Performance</h1>
+                  <p class="hero-subtext">Real-time inference profiling, gesture stream analytics, and neural keypoint stability diagnostics.</p>
+                </div>
+                <div class="hero-action-group">
+                  <button class="glass-action-btn secondary" id="reset-telemetry-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="1 4 1 10 7 10"></polyline>
+                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    <span>Reset Telemetry</span>
+                  </button>
+                  <button class="glass-action-btn primary" id="export-telemetry-csv">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Export Report</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Metrics Summary Cards Grid -->
+              <div class="kpi-grid">
+                <div class="glass-card kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">INFERENCE FPS</span>
+                    <span class="kpi-badge emerald" id="kpi-fps-badge">Optimal</span>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-number" id="analytics-fps-val">60.0</span>
+                    <span class="kpi-unit">fps</span>
+                  </div>
+                  <div class="kpi-subtext">Target: 60 fps (16.6ms frame budget)</div>
+                </div>
+
+                <div class="glass-card kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">PROCESSING LATENCY</span>
+                    <span class="kpi-badge cyan" id="kpi-lat-badge">Real-time</span>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-number" id="analytics-lat-val">4.2</span>
+                    <span class="kpi-unit">ms</span>
+                  </div>
+                  <div class="kpi-subtext">MediaPipe Vision + One-Euro Filter</div>
+                </div>
+
+                <div class="glass-card kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">ACTIVE BLOOMS</span>
+                    <span class="kpi-badge violet">Canvas</span>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-number" id="analytics-blooms-val">0</span>
+                    <span class="kpi-unit">/ 60</span>
+                  </div>
+                  <div class="kpi-subtext">Dynamic memory managed particle pool</div>
+                </div>
+
+                <div class="glass-card kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">GESTURE CONFIDENCE</span>
+                    <span class="kpi-badge amber" id="kpi-conf-badge">98.4%</span>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-number" id="analytics-conf-val">98.4</span>
+                    <span class="kpi-unit">%</span>
+                  </div>
+                  <div class="kpi-subtext">Weighted geometric vector certainty</div>
+                </div>
+              </div>
+
+              <!-- Main Charts Area -->
+              <div class="charts-grid">
+                <!-- Latency Stream Line Chart Card -->
+                <div class="glass-card chart-card">
+                  <div class="card-head-row">
+                    <div class="card-head-col">
+                      <h3 class="card-title">Live Pipeline Latency Stream</h3>
+                      <span class="card-subtitle">Real-time rolling 60-frame telemetry</span>
+                    </div>
+                    <div class="chart-legend">
+                      <span class="legend-item"><span class="legend-dot cyan"></span> Inference</span>
+                      <span class="legend-item"><span class="legend-dot violet"></span> Filter + Render</span>
+                    </div>
+                  </div>
+                  <div class="chart-canvas-wrapper">
+                    <canvas id="telemetry-chart-canvas" width="600" height="220"></canvas>
+                  </div>
+                </div>
+
+                <!-- Gesture Frequency Breakdown -->
+                <div class="glass-card chart-card">
+                  <div class="card-head-row">
+                    <div class="card-head-col">
+                      <h3 class="card-title">Gesture Distribution</h3>
+                      <span class="card-subtitle">Classification frequency by posture type</span>
+                    </div>
+                  </div>
+                  <div class="gesture-bars-list" id="gesture-bars-container">
+                    <!-- Populated dynamically via JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recent Gesture Event Stream Table -->
+              <div class="glass-card table-card">
+                <div class="card-head-row">
+                  <div class="card-head-col">
+                    <h3 class="card-title">Recent Gesture & Action Log</h3>
+                    <span class="card-subtitle">Chronological event stream from the vision pipeline</span>
+                  </div>
+                  <span class="event-stream-status"><span class="live-dot"></span> Streaming</span>
+                </div>
+                <div class="table-responsive">
+                  <table class="glass-table">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Handedness</th>
+                        <th>Gesture</th>
+                        <th>Confidence</th>
+                        <th>Position (X, Y)</th>
+                        <th>Action Dispatched</th>
+                      </tr>
+                    </thead>
+                    <tbody id="telemetry-event-table-body">
+                      <tr>
+                        <td colspan="6" class="table-empty-row">No gestures detected yet. Wave your hand in front of the camera to begin streaming.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 3: BOTANICAL LIBRARY ==================== -->
+          <section class="view-panel" id="view-library">
+            <div class="panel-content-scroll">
+              <div class="section-hero-header">
+                <div>
+                  <h1 class="hero-heading">Botanical Specimen Library</h1>
+                  <p class="hero-subtext">High-resolution photographic floral assets, biological taxonomy, and blooming dynamics.</p>
+                </div>
+                <!-- Library Filter Tabs -->
+                <div class="glass-tabs" id="library-filter-tabs">
+                  <button class="tab-btn active" data-family="all">All Specimens</button>
+                  <button class="tab-btn" data-family="Asteraceae">Asteraceae</button>
+                  <button class="tab-btn" data-family="Rosaceae">Rosaceae</button>
+                  <button class="tab-btn" data-family="Apocynaceae">Apocynaceae</button>
+                </div>
+              </div>
+
+              <!-- Specimens Grid -->
+              <div class="specimen-cards-grid" id="specimens-grid">
+                <!-- Injected dynamically via JS from FLOWER_COLLECTION -->
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 4: GESTURE MATRIX ==================== -->
+          <section class="view-panel" id="view-gestures">
+            <div class="panel-content-scroll">
+              <div class="section-hero-header">
+                <div>
+                  <h1 class="hero-heading">Gesture Recognition Matrix</h1>
+                  <p class="hero-subtext">Configure geometric classification angles, pinch tolerances, and custom action mappings.</p>
+                </div>
+                <button class="glass-action-btn secondary" id="reset-gestures-btn">Reset Defaults</button>
+              </div>
+
+              <!-- Gesture Cards Grid -->
+              <div class="matrix-grid">
+                <div class="glass-card gesture-config-card">
+                  <div class="gesture-card-top">
+                    <div class="gesture-icon-bubble">☝️</div>
+                    <div class="gesture-card-meta">
+                      <h3 class="gesture-name">Pointing / Continuous Drag</h3>
+                      <span class="gesture-action-badge">Action: DRAW_START / DRAW_MOVE</span>
+                    </div>
+                  </div>
+                  <p class="gesture-desc">Index finger fully extended while Middle, Ring, and Pinky remain curled into the palm. Drives precise floral trail placement.</p>
+                  <div class="gesture-controls-group">
+                    <div class="control-slider-row">
+                      <label>Curl Threshold</label>
+                      <span class="slider-val" id="val-point-threshold">0.70</span>
+                    </div>
+                    <input type="range" class="glass-slider" min="0.5" max="0.9" step="0.05" value="0.70" id="slider-point-threshold" />
+                  </div>
+                </div>
+
+                <div class="glass-card gesture-config-card">
+                  <div class="gesture-card-top">
+                    <div class="gesture-icon-bubble">🖐️</div>
+                    <div class="gesture-card-meta">
+                      <h3 class="gesture-name">Open Palm Hover</h3>
+                      <span class="gesture-action-badge">Action: HOVER / INSPECT</span>
+                    </div>
+                  </div>
+                  <p class="gesture-desc">All 5 fingers extended outward with wide inter-digit spacing. Inspects nearest planted bloom and reveals botanical metadata.</p>
+                  <div class="gesture-controls-group">
+                    <div class="control-slider-row">
+                      <label>Spread Distance</label>
+                      <span class="slider-val" id="val-palm-spread">0.45</span>
+                    </div>
+                    <input type="range" class="glass-slider" min="0.3" max="0.7" step="0.05" value="0.45" id="slider-palm-spread" />
+                  </div>
+                </div>
+
+                <div class="glass-card gesture-config-card">
+                  <div class="gesture-card-top">
+                    <div class="gesture-icon-bubble">✌️</div>
+                    <div class="gesture-card-meta">
+                      <h3 class="gesture-name">Peace Sign (Victory)</h3>
+                      <span class="gesture-action-badge">Action: CYCLE_FLOWER</span>
+                    </div>
+                  </div>
+                  <p class="gesture-desc">Index and Middle fingers extended upwards in a V-formation. Rapidly cycles through available botanical flower varieties.</p>
+                  <div class="gesture-controls-group">
+                    <div class="control-slider-row">
+                      <label>Switch Cooldown</label>
+                      <span class="slider-val" id="val-peace-cooldown">450ms</span>
+                    </div>
+                    <input type="range" class="glass-slider" min="200" max="800" step="50" value="450" id="slider-peace-cooldown" />
+                  </div>
+                </div>
+
+                <div class="glass-card gesture-config-card">
+                  <div class="gesture-card-top">
+                    <div class="gesture-icon-bubble">👍</div>
+                    <div class="gesture-card-meta">
+                      <h3 class="gesture-name">Thumbs Up</h3>
+                      <span class="gesture-action-badge">Action: CLEAR_CANVAS</span>
+                    </div>
+                  </div>
+                  <p class="gesture-desc">Thumb pointing vertically upward with all remaining fingers curled into a fist. Instantly clears and resets the garden canvas.</p>
+                  <div class="gesture-controls-group">
+                    <div class="control-slider-row">
+                      <label>Hold Duration</label>
+                      <span class="slider-val" id="val-thumb-hold">300ms</span>
+                    </div>
+                    <input type="range" class="glass-slider" min="100" max="600" step="50" value="300" id="slider-thumb-hold" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Keyboard Shortcuts Reference Matrix -->
+              <div class="glass-card table-card" style="margin-top: 24px;">
+                <div class="card-head-row">
+                  <div class="card-head-col">
+                    <h3 class="card-title">Studio Keyboard Shortcuts</h3>
+                    <span class="card-subtitle">Alternative rapid controls for desktop studio sessions</span>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="glass-table">
+                    <thead>
+                      <tr>
+                        <th>Shortcut</th>
+                        <th>Action</th>
+                        <th>Scope</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><kbd class="table-kbd">Ctrl</kbd> + <kbd class="table-kbd">Z</kbd></td>
+                        <td>Undo Last Bloom</td>
+                        <td>Studio Canvas</td>
+                        <td>Reverts the most recent flower stroke or gesture placement</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">C</kbd></td>
+                        <td>Clear Garden</td>
+                        <td>Studio Canvas</td>
+                        <td>Clears all active stems and particles from the viewport</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">F</kbd></td>
+                        <td>Cycle Specimen</td>
+                        <td>Global</td>
+                        <td>Switches to the next botanical flower variety</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">M</kbd></td>
+                        <td>Toggle Trail Mode</td>
+                        <td>Studio Canvas</td>
+                        <td>Toggles between Floral Trail and Plain Trail modes</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">S</kbd></td>
+                        <td>Toggle Skeleton Lines</td>
+                        <td>Studio Canvas</td>
+                        <td>Shows/hides neural hand landmark skeleton visualizer</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">D</kbd></td>
+                        <td>Toggle Telemetry HUD</td>
+                        <td>Studio Canvas</td>
+                        <td>Displays real-time FPS and latency diagnostic box</td>
+                      </tr>
+                      <tr>
+                        <td><kbd class="table-kbd">/</kbd></td>
+                        <td>Search / Command</td>
+                        <td>Global</td>
+                        <td>Focuses the specimen search and navigation bar</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 5: STUDIO SETTINGS ==================== -->
+          <section class="view-panel" id="view-settings">
+            <div class="panel-content-scroll">
+              <div class="section-hero-header">
+                <div>
+                  <h1 class="hero-heading">Engine & Visual Settings</h1>
+                  <p class="hero-subtext">Fine-tune MediaPipe Vision AI neural models, rendering density, and glass visual aesthetics.</p>
+                </div>
+                <button class="glass-action-btn primary" id="save-settings-btn">Save Preferences</button>
+              </div>
+
+              <div class="settings-grid">
+                <!-- Group 1: Neural Vision AI -->
+                <div class="glass-card settings-card">
+                  <div class="card-head-row">
+                    <div class="card-head-col">
+                      <h3 class="card-title">Vision Model Parameters</h3>
+                      <span class="card-subtitle">MediaPipe Gesture Recognition configuration</span>
+                    </div>
+                  </div>
+                  <div class="settings-form">
+                    <div class="form-group">
+                      <label class="form-label" for="setting-min-confidence">Minimum Detection Confidence</label>
+                      <div class="form-row-between">
+                        <span class="form-hint">Higher values reduce false positives in noisy backgrounds</span>
+                        <span class="form-badge-val" id="val-conf-setting">0.65</span>
+                      </div>
+                      <input type="range" class="glass-slider" min="0.3" max="0.95" step="0.05" value="0.65" id="setting-min-confidence" />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="setting-filter-smoothing">One-Euro Filter Smoothing (Beta)</label>
+                      <div class="form-row-between">
+                        <span class="form-hint">Controls velocity-adaptive jitter removal vs responsiveness</span>
+                        <span class="form-badge-val" id="val-filter-setting">0.05</span>
+                      </div>
+                      <input type="range" class="glass-slider" min="0.01" max="0.2" step="0.01" value="0.05" id="setting-filter-smoothing" />
+                    </div>
+
+                    <div class="form-group-toggle">
+                      <div>
+                        <div class="toggle-title">Mirror Hardware Video</div>
+                        <div class="toggle-desc">Horizontally mirror camera feed for natural selfie interaction</div>
+                      </div>
+                      <label class="glass-switch">
+                        <input type="checkbox" id="setting-mirror-video" checked />
+                        <span class="switch-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Group 2: Generative Canvas Rendering -->
+                <div class="glass-card settings-card">
+                  <div class="card-head-row">
+                    <div class="card-head-col">
+                      <h3 class="card-title">Generative Botanical Canvas</h3>
+                      <span class="card-subtitle">Particle limit and bloom scale dynamics</span>
+                    </div>
+                  </div>
+                  <div class="settings-form">
+                    <div class="form-group">
+                      <label class="form-label" for="setting-max-flowers">Maximum Active Blooms</label>
+                      <div class="form-row-between">
+                        <span class="form-hint">Cap active flowers for optimal 60fps GPU performance</span>
+                        <span class="form-badge-val" id="val-max-flowers-setting">60</span>
+                      </div>
+                      <input type="range" class="glass-slider" min="20" max="150" step="10" value="60" id="setting-max-flowers" />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="setting-flower-scale">Global Flower Scale Multiplier</label>
+                      <div class="form-row-between">
+                        <span class="form-hint">Adjust rendering diameter for all botanical assets</span>
+                        <span class="form-badge-val" id="val-scale-setting">1.0x</span>
+                      </div>
+                      <input type="range" class="glass-slider" min="0.5" max="2.0" step="0.1" value="1.0" id="setting-flower-scale" />
+                    </div>
+
+                    <div class="form-group-toggle">
+                      <div>
+                        <div class="toggle-title">Bloom Spring Physics</div>
+                        <div class="toggle-desc">Enable smooth harmonic spring expansion on spawn</div>
+                      </div>
+                      <label class="glass-switch">
+                        <input type="checkbox" id="setting-bloom-physics" checked />
+                        <span class="switch-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- ==================== MODALS & DIALOGS ==================== -->
+
+      <!-- 1. Camera & AI Permission Modal -->
       <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-card">
+        <div class="glass-modal-card">
           <div id="modal-icon-container" class="modal-icon-ring">
             <div class="spinner"></div>
           </div>
-          <h2 id="modal-title" class="modal-title">Welcome to AuraBloom Garden</h2>
+          <h2 id="modal-title" class="modal-title">Welcome to AuraBloom Studio</h2>
           <p id="modal-desc" class="modal-description">
-            Initializing neural vision models and camera access for real-time hand gesture botanical painting.
+            Initializing neural vision models and requesting camera access for real-time hand gesture botanical painting.
           </p>
           <div class="modal-btn-group">
-            <button id="modal-btn" class="modal-btn">Allow Camera Access</button>
-            <button id="modal-demo-btn" class="modal-btn secondary">Use Mouse / Touch Demo</button>
+            <button id="modal-btn" class="glass-action-btn primary large">Allow Camera Access</button>
+            <button id="modal-demo-btn" class="glass-action-btn secondary large">Use Mouse / Touch Demo</button>
           </div>
           <div id="modal-help-tip" class="modal-help-tip" style="display: none;">
             💡 <strong>Tip:</strong> In Chrome, click the site settings / lock icon on the left of the URL bar and set <strong>Camera</strong> to <strong>Allow</strong>.
           </div>
         </div>
       </div>
+
+      <!-- 2. Export Artwork Modal -->
+      <div id="export-modal-overlay" class="modal-overlay hidden">
+        <div class="glass-modal-card export-modal">
+          <div class="modal-head">
+            <h2 class="modal-title">Export Botanical Artwork</h2>
+            <button class="icon-btn-close" id="export-modal-close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="export-preview-box">
+            <canvas id="export-preview-canvas" width="480" height="270"></canvas>
+          </div>
+          <div class="export-options-row">
+            <div class="export-opt-col">
+              <label class="form-label">Format</label>
+              <select class="glass-select" id="export-format-select">
+                <option value="png">PNG (Lossless 24-bit Alpha)</option>
+                <option value="jpeg">JPEG (High-Res 95% Quality)</option>
+              </select>
+            </div>
+            <div class="export-opt-col">
+              <label class="form-label">Include Camera Backdrop</label>
+              <select class="glass-select" id="export-backdrop-select">
+                <option value="transparent">Transparent Glass Artwork</option>
+                <option value="backdrop">Full Camera Feed + Blooms</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-btn-group">
+            <button class="glass-action-btn primary large" id="download-export-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Download Image</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Shortcuts Dialog Modal -->
+      <div id="shortcuts-modal-overlay" class="modal-overlay hidden">
+        <div class="glass-modal-card">
+          <div class="modal-head">
+            <h2 class="modal-title">Keyboard & Gesture Shortcuts</h2>
+            <button class="icon-btn-close" id="shortcuts-modal-close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="shortcuts-list">
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Undo last drawn flower</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">Ctrl</kbd> + <kbd class="table-kbd">Z</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Clear garden canvas</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">C</kbd> or <span class="gesture-icon">👍</span> Thumbs Up</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Cycle flower specimen</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">F</kbd> or <span class="gesture-icon">✌️</span> Peace Sign</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Toggle floral / plain trail</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">M</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Toggle skeleton overlay</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">S</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Toggle telemetry HUD</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">D</kbd></span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">Quick Specimen Search</span>
+              <span class="shortcut-keys"><kbd class="table-kbd">/</kbd></span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Application Logic Entrypoint -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

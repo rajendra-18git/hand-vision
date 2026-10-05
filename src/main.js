@@ -1,6 +1,7 @@
 /**
- * App Orchestrator & Botanical Garden Manager
- * Links Stages 1 through 8 in a high-performance requestAnimationFrame loop.
+ * AuraBloom Studio — Orchestrator & Glassmorphism 2.0 Studio Engine
+ * Connects MediaPipe AI vision pipeline, interactive botanical canvas,
+ * telemetry analytics, specimen library, gesture matrix, and modern glass UI.
  */
 
 import { CameraManager } from './pipeline/1_capture.js';
@@ -17,21 +18,31 @@ import { DebugOverlay } from './render/debugOverlay.js';
 import { FLOWER_COLLECTION, FLOWER_LIST } from './render/palette.js';
 import { UndoManager } from './utils/undoManager.js';
 
-class App {
+class AuraBloomStudioApp {
   constructor() {
-    // DOM Elements
+    // 1. Viewport & Canvas Stack
     this.viewport = document.getElementById('viewport');
     this.videoElement = document.getElementById('webcam-video');
     this.drawingCanvas = document.getElementById('drawing-canvas');
     this.skeletonCanvas = document.getElementById('skeleton-canvas');
 
+    // 2. Navigation & Sidebar
+    this.sidebar = document.getElementById('main-sidebar');
+    this.mobileMenuBtn = document.getElementById('mobile-menu-toggle');
+    this.navItems = document.querySelectorAll('.nav-item');
+    this.viewPanels = document.querySelectorAll('.view-panel');
+    this.headerViewTitle = document.getElementById('header-view-title');
+
+    // 3. Header Indicators & Controls
     this.statusPill = document.getElementById('status-pill');
     this.statusText = document.getElementById('status-text');
-    this.statusDot = this.statusPill.querySelector('.status-dot');
-
+    this.statusDot = this.statusPill?.querySelector('.status-dot');
     this.detectionPill = document.getElementById('detection-pill');
     this.detectionPillText = document.getElementById('detection-pill-text');
+    this.themeToggleBtn = document.getElementById('theme-toggle-btn');
+    this.exportSnapshotBtn = document.getElementById('export-snapshot-btn');
 
+    // 4. Studio HUD Elements
     this.flowerRibbon = document.getElementById('flower-ribbon');
     this.botanicalCard = document.getElementById('botanical-card-hud');
     this.botanicalAvatar = document.getElementById('botanical-avatar');
@@ -40,6 +51,21 @@ class App {
     this.botanicalFamily = document.getElementById('botanical-family');
     this.botanicalDesc = document.getElementById('botanical-desc');
 
+    // 5. Studio Dock Buttons
+    this.undoBtn = document.getElementById('undo-btn');
+    this.clearBtn = document.getElementById('clear-btn');
+    this.triggerBtn = document.getElementById('trigger-btn');
+    this.triggerLabel = document.getElementById('trigger-label');
+    this.skeletonBtn = document.getElementById('skeleton-btn');
+    this.cameraFlipBtn = document.getElementById('camera-flip-btn');
+    this.debugToggleBtn = document.getElementById('debug-toggle-btn');
+
+    // 6. Sidebar Health Elements
+    this.sidebarVisionStatus = document.getElementById('sidebar-vision-status');
+    this.sidebarBloomsCount = document.getElementById('sidebar-blooms-count');
+    this.sidebarBloomsFill = document.getElementById('sidebar-blooms-fill');
+
+    // 7. Modals
     this.modalOverlay = document.getElementById('modal-overlay');
     this.modalTitle = document.getElementById('modal-title');
     this.modalDesc = document.getElementById('modal-desc');
@@ -48,18 +74,64 @@ class App {
     this.modalHelpTip = document.getElementById('modal-help-tip');
     this.modalIconContainer = document.getElementById('modal-icon-container');
 
+    this.exportModal = document.getElementById('export-modal-overlay');
+    this.exportModalClose = document.getElementById('export-modal-close');
+    this.exportPreviewCanvas = document.getElementById('export-preview-canvas');
+    this.exportFormatSelect = document.getElementById('export-format-select');
+    this.exportBackdropSelect = document.getElementById('export-backdrop-select');
+    this.downloadExportBtn = document.getElementById('download-export-btn');
+
+    this.shortcutsModal = document.getElementById('shortcuts-modal-overlay');
+    this.shortcutsModalBtn = document.getElementById('shortcuts-modal-btn');
+    this.shortcutsModalClose = document.getElementById('shortcuts-modal-close');
+
+    // 8. Search / Command Palette
+    this.globalSearchInput = document.getElementById('global-specimen-search');
+    this.searchDropdown = document.getElementById('search-dropdown');
+
+    // 9. Toast Notification
     this.actionToast = document.getElementById('action-toast');
     this.toastText = document.getElementById('toast-text');
     this.toastIcon = document.getElementById('toast-icon');
 
-    // UI Buttons
-    this.undoBtn = document.getElementById('undo-btn');
-    this.clearBtn = document.getElementById('clear-btn');
-    this.triggerBtn = document.getElementById('trigger-btn');
-    this.triggerLabel = document.getElementById('trigger-label');
-    this.skeletonBtn = document.getElementById('skeleton-btn');
-    this.cameraFlipBtn = document.getElementById('camera-flip-btn');
-    this.debugToggleBtn = document.getElementById('debug-toggle-btn');
+    // 10. Analytics & Telemetry Elements
+    this.telemetryCanvas = document.getElementById('telemetry-chart-canvas');
+    this.analyticsFpsVal = document.getElementById('analytics-fps-val');
+    this.analyticsLatVal = document.getElementById('analytics-lat-val');
+    this.analyticsBloomsVal = document.getElementById('analytics-blooms-val');
+    this.analyticsConfVal = document.getElementById('analytics-conf-val');
+    this.gestureBarsContainer = document.getElementById('gesture-bars-container');
+    this.telemetryEventTableBody = document.getElementById('telemetry-event-table-body');
+    this.resetTelemetryBtn = document.getElementById('reset-telemetry-btn');
+    this.exportTelemetryCsvBtn = document.getElementById('export-telemetry-csv');
+
+    // 11. Botanical Library Elements
+    this.specimensGrid = document.getElementById('specimens-grid');
+    this.libraryFilterTabs = document.getElementById('library-filter-tabs');
+
+    // 12. Gesture Matrix Elements
+    this.sliderPointThreshold = document.getElementById('slider-point-threshold');
+    this.valPointThreshold = document.getElementById('val-point-threshold');
+    this.sliderPalmSpread = document.getElementById('slider-palm-spread');
+    this.valPalmSpread = document.getElementById('val-palm-spread');
+    this.sliderPeaceCooldown = document.getElementById('slider-peace-cooldown');
+    this.valPeaceCooldown = document.getElementById('val-peace-cooldown');
+    this.sliderThumbHold = document.getElementById('slider-thumb-hold');
+    this.valThumbHold = document.getElementById('val-thumb-hold');
+    this.resetGesturesBtn = document.getElementById('reset-gestures-btn');
+
+    // 13. Settings Form Elements
+    this.settingMinConfidence = document.getElementById('setting-min-confidence');
+    this.valConfSetting = document.getElementById('val-conf-setting');
+    this.settingFilterSmoothing = document.getElementById('setting-filter-smoothing');
+    this.valFilterSetting = document.getElementById('val-filter-setting');
+    this.settingMirrorVideo = document.getElementById('setting-mirror-video');
+    this.settingMaxFlowers = document.getElementById('setting-max-flowers');
+    this.valMaxFlowersSetting = document.getElementById('val-max-flowers-setting');
+    this.settingFlowerScale = document.getElementById('setting-flower-scale');
+    this.valScaleSetting = document.getElementById('val-scale-setting');
+    this.settingBloomPhysics = document.getElementById('setting-bloom-physics');
+    this.saveSettingsBtn = document.getElementById('save-settings-btn');
 
     // Pipeline Stage Instances
     this.cameraManager = new CameraManager({
@@ -82,21 +154,47 @@ class App {
     this.debugOverlay = new DebugOverlay(document.getElementById('debug-hud'));
     this.undoManager = new UndoManager();
 
+    // App State
     this.isMirrored = true;
     this.currentFlowerIndex = 0;
     this.currentFlowerId = 'allMix';
     this.toastTimeout = null;
+    this.activeView = 'studio';
 
-    // Mouse / Touch Demo Mode State
+    // Demo Mode State
     this.isDemoMode = false;
     this.isMouseDown = false;
+
+    // Telemetry Telemetry History State
+    this.latencyHistory = new Array(60).fill(4.0);
+    this.fpsHistory = new Array(60).fill(60.0);
+    this.gestureCounts = {
+      pointing: 0,
+      open_palm: 0,
+      peace: 0,
+      thumbs_up: 0,
+      fist: 0,
+      pinch: 0
+    };
+    this.recentEventsLog = [];
+    this.lastFpsUpdateTime = performance.now();
+    this.frameCountSinceFpsUpdate = 0;
+    this.currentFps = 60.0;
 
     this.init();
   }
 
   async init() {
+    this.setupTheme();
     this.setupResizeHandler();
+    this.setupNavigation();
     this.setupFlowerRibbon();
+    this.setupBotanicalLibrary();
+    this.setupGestureMatrix();
+    this.setupSettingsView();
+    this.setupSearchCommandPalette();
+    this.setupExportModal();
+    this.setupShortcutsModal();
     this.setupUIEventListeners();
     this.setupActionBindings();
     this.setupMouseSimulation();
@@ -105,39 +203,47 @@ class App {
     this.selectFlower('allMix');
     this.updateModeUI();
 
-    // Wire up modal action buttons
-    this.modalBtn.onclick = async () => {
-      this.modalBtn.disabled = true;
-      this.modalBtn.textContent = 'Requesting...';
-      this.modalIconContainer.innerHTML = '<div class="spinner"></div>';
-      try {
-        await this.cameraManager.start();
+    // Wire up Camera Permission Modal
+    if (this.modalBtn) {
+      this.modalBtn.onclick = async () => {
+        this.modalBtn.disabled = true;
+        this.modalBtn.textContent = 'Requesting...';
+        this.modalIconContainer.innerHTML = '<div class="spinner"></div>';
+        try {
+          await this.cameraManager.start();
+          this.hideModal();
+          this.setStatus('Camera Active', 'ready');
+        } catch (err) {
+          this.handleCameraError(err);
+        } finally {
+          this.modalBtn.disabled = false;
+          this.modalBtn.textContent = 'Retry Camera Access';
+        }
+      };
+    }
+
+    if (this.modalDemoBtn) {
+      this.modalDemoBtn.onclick = () => {
+        this.isDemoMode = true;
         this.hideModal();
-        this.setStatus('Camera Active', 'ready');
-      } catch (err) {
-        this.handleCameraError(err);
-      } finally {
-        this.modalBtn.disabled = false;
-        this.modalBtn.textContent = 'Retry Camera Access';
-      }
-    };
+        this.setStatus('Interactive Mode (Mouse / Touch)', 'ready');
+        this.showToast('🌸', 'Drag mouse or finger to draw continuous floral trails!');
+      };
+    }
 
-    this.modalDemoBtn.onclick = () => {
-      this.isDemoMode = true;
-      this.hideModal();
-      this.setStatus('Interactive Mode (Mouse / Touch)', 'ready');
-      this.showToast('🌸', 'Drag mouse or finger to draw continuous floral trails!');
-    };
-
+    // Try Auto-starting AI vision pipeline
     try {
       this.setStatus('Loading Vision AI...', 'loading');
+      if (this.sidebarVisionStatus) this.sidebarVisionStatus.textContent = 'Loading...';
       await this.detector.init();
 
       this.setStatus('Starting Camera...', 'loading');
+      if (this.sidebarVisionStatus) this.sidebarVisionStatus.textContent = 'Initializing...';
       await this.cameraManager.start();
 
       this.hideModal();
       this.setStatus('Camera Active', 'ready');
+      if (this.sidebarVisionStatus) this.sidebarVisionStatus.textContent = 'Online (60fps)';
     } catch (err) {
       console.warn('Initial camera auto-start paused, presenting user action modal:', err);
       this.handleCameraError(err);
@@ -146,29 +252,108 @@ class App {
     this.startLoop();
   }
 
+  // --- Theme Management ---
+  setupTheme() {
+    const savedTheme = localStorage.getItem('aurabloom-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', nextTheme);
+        localStorage.setItem('aurabloom-theme', nextTheme);
+        this.showToast(nextTheme === 'dark' ? '🌙' : '☀️', `${nextTheme.toUpperCase()} Glass Theme Enabled`);
+      });
+    }
+  }
+
+  // --- View Navigation & Sidebar ---
+  setupNavigation() {
+    this.navItems.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const viewId = btn.getAttribute('data-view');
+        this.switchView(viewId);
+      });
+    });
+
+    if (this.mobileMenuBtn && this.sidebar) {
+      this.mobileMenuBtn.addEventListener('click', () => {
+        this.sidebar.classList.toggle('mobile-open');
+      });
+
+      // Close mobile sidebar on outside tap
+      document.addEventListener('click', (e) => {
+        if (this.sidebar.classList.contains('mobile-open') && !this.sidebar.contains(e.target) && !this.mobileMenuBtn.contains(e.target)) {
+          this.sidebar.classList.remove('mobile-open');
+        }
+      });
+    }
+  }
+
+  switchView(viewId) {
+    this.activeView = viewId;
+
+    // Update Nav buttons
+    this.navItems.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-view') === viewId);
+    });
+
+    // Update View Panels
+    this.viewPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `view-${viewId}`);
+    });
+
+    // Update Breadcrumb Header
+    const titles = {
+      studio: 'Interactive Studio',
+      analytics: 'Vision Telemetry & Data',
+      library: 'Botanical Specimen Library',
+      gestures: 'Gesture Recognition Matrix',
+      settings: 'Engine & Visual Settings'
+    };
+
+    if (this.headerViewTitle) {
+      this.headerViewTitle.textContent = titles[viewId] || 'Studio';
+    }
+
+    // Close mobile drawer if open
+    if (this.sidebar) {
+      this.sidebar.classList.remove('mobile-open');
+    }
+  }
+
+  // --- Canvas Resizing ---
   setupResizeHandler() {
     const handleResize = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
 
-      this.drawingCanvas.width = width;
-      this.drawingCanvas.height = height;
+      if (this.drawingCanvas) {
+        this.drawingCanvas.width = width;
+        this.drawingCanvas.height = height;
+      }
 
-      this.skeletonCanvas.width = width;
-      this.skeletonCanvas.height = height;
+      if (this.skeletonCanvas) {
+        this.skeletonCanvas.width = width;
+        this.skeletonCanvas.height = height;
+      }
 
-      this.flowerRenderer.resize(width, height);
+      if (this.flowerRenderer) {
+        this.flowerRenderer.resize(width, height);
+      }
     };
 
     window.addEventListener('resize', handleResize);
     handleResize();
   }
 
+  // --- Specimen Ribbon & Selector ---
   setupFlowerRibbon() {
     if (!this.flowerRibbon) return;
 
     this.flowerRibbon.innerHTML = FLOWER_LIST.map((flower, idx) => `
-      <button class="flower-pill ${idx === 0 ? 'active' : ''}" data-flower-id="${flower.id}">
+      <button class="flower-pill ${idx === 0 ? 'active' : ''}" data-flower-id="${flower.id}" aria-label="Select ${flower.name}">
         <span class="flower-pill-emoji">${flower.emoji}</span>
         <span>${flower.name}</span>
       </button>
@@ -190,14 +375,22 @@ class App {
     this.flowerRenderer.setFlowerType(flowerId);
     this.currentFlowerIndex = FLOWER_LIST.findIndex((f) => f.id === flowerId);
 
+    // Update Ribbon Pills
     if (this.flowerRibbon) {
       this.flowerRibbon.querySelectorAll('.flower-pill').forEach((pill) => {
         pill.classList.toggle('active', pill.getAttribute('data-flower-id') === flowerId);
       });
     }
 
+    // Update Botanical Library Specimen Cards
+    if (this.specimensGrid) {
+      this.specimensGrid.querySelectorAll('.specimen-card').forEach((card) => {
+        card.classList.toggle('active-selected', card.getAttribute('data-specimen-id') === flowerId);
+      });
+    }
+
     this.updateBotanicalCard(flower);
-    this.showToast(flower.emoji, `Active: ${flower.name}`);
+    this.showToast(flower.emoji, `Active Specimen: ${flower.name}`);
   }
 
   updateBotanicalCard(flower) {
@@ -219,7 +412,7 @@ class App {
   toggleDrawingMode() {
     const newMode = this.flowerRenderer.toggleMode();
     this.updateModeUI();
-    this.showToast(newMode === 'flower' ? '🌸' : '✨', newMode === 'flower' ? 'Floral Trail Mode' : 'Plain Drawing Mode');
+    this.showToast(newMode === 'flower' ? '🌸' : '✨', newMode === 'flower' ? 'Floral Trail Mode' : 'Plain Trail Mode');
   }
 
   updateModeUI() {
@@ -231,6 +424,328 @@ class App {
     }
   }
 
+  // --- Botanical Specimen Library ---
+  setupBotanicalLibrary() {
+    if (!this.specimensGrid) return;
+
+    this.renderSpecimenCards('all');
+
+    if (this.libraryFilterTabs) {
+      this.libraryFilterTabs.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.libraryFilterTabs.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const family = btn.getAttribute('data-family');
+          this.renderSpecimenCards(family);
+        });
+      });
+    }
+  }
+
+  renderSpecimenCards(familyFilter = 'all') {
+    if (!this.specimensGrid) return;
+
+    const filtered = FLOWER_LIST.filter((f) => {
+      if (familyFilter === 'all') return true;
+      return f.family && f.family.toLowerCase().includes(familyFilter.toLowerCase());
+    });
+
+    this.specimensGrid.innerHTML = filtered.map((flower) => {
+      const isSelected = flower.id === this.currentFlowerId;
+      return `
+        <div class="glass-card specimen-card ${isSelected ? 'active-selected' : ''}" data-specimen-id="${flower.id}">
+          <div class="specimen-top">
+            <div class="specimen-avatar-box">${flower.emoji}</div>
+            <div class="specimen-info-col">
+              <h3>${flower.name}</h3>
+              <span class="specimen-binomial">${flower.scientificName || 'Flora'}</span>
+            </div>
+          </div>
+          <div class="specimen-tags-row">
+            <span class="meta-tag active">${flower.family || 'Botanical'}</span>
+            <span class="meta-tag">Scale: ${flower.defaultScale || 1.2}x</span>
+            <span class="meta-tag">Duration: ${flower.bloomDuration || 350}ms</span>
+          </div>
+          <p class="specimen-desc">${flower.description || ''}</p>
+          <button class="glass-action-btn ${isSelected ? 'primary' : 'secondary'} specimen-card-btn" data-specimen-id="${flower.id}">
+            ${isSelected ? 'Active Specimen' : 'Select for Studio'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    this.specimensGrid.querySelectorAll('.specimen-card-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const flowerId = btn.getAttribute('data-specimen-id');
+        this.selectFlower(flowerId);
+        this.switchView('studio');
+      });
+    });
+
+    this.specimensGrid.querySelectorAll('.specimen-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const flowerId = card.getAttribute('data-specimen-id');
+        this.selectFlower(flowerId);
+      });
+    });
+  }
+
+  // --- Gesture Recognition Matrix Controls ---
+  setupGestureMatrix() {
+    if (this.sliderPointThreshold && this.valPointThreshold) {
+      this.sliderPointThreshold.addEventListener('input', (e) => {
+        this.valPointThreshold.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.sliderPalmSpread && this.valPalmSpread) {
+      this.sliderPalmSpread.addEventListener('input', (e) => {
+        this.valPalmSpread.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.sliderPeaceCooldown && this.valPeaceCooldown) {
+      this.sliderPeaceCooldown.addEventListener('input', (e) => {
+        this.valPeaceCooldown.textContent = `${e.target.value}ms`;
+      });
+    }
+
+    if (this.sliderThumbHold && this.valThumbHold) {
+      this.sliderThumbHold.addEventListener('input', (e) => {
+        this.valThumbHold.textContent = `${e.target.value}ms`;
+      });
+    }
+
+    if (this.resetGesturesBtn) {
+      this.resetGesturesBtn.addEventListener('click', () => {
+        if (this.sliderPointThreshold) this.sliderPointThreshold.value = '0.70';
+        if (this.valPointThreshold) this.valPointThreshold.textContent = '0.70';
+        if (this.sliderPalmSpread) this.sliderPalmSpread.value = '0.45';
+        if (this.valPalmSpread) this.valPalmSpread.textContent = '0.45';
+        if (this.sliderPeaceCooldown) this.sliderPeaceCooldown.value = '450';
+        if (this.valPeaceCooldown) this.valPeaceCooldown.textContent = '450ms';
+        if (this.sliderThumbHold) this.sliderThumbHold.value = '300';
+        if (this.valThumbHold) this.valThumbHold.textContent = '300ms';
+        this.showToast('⚙️', 'Gesture Sensitivity Matrix Reset to Defaults');
+      });
+    }
+  }
+
+  // --- Studio Engine Settings ---
+  setupSettingsView() {
+    if (this.settingMinConfidence && this.valConfSetting) {
+      this.settingMinConfidence.addEventListener('input', (e) => {
+        this.valConfSetting.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.settingFilterSmoothing && this.valFilterSetting) {
+      this.settingFilterSmoothing.addEventListener('input', (e) => {
+        this.valFilterSetting.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.settingMaxFlowers && this.valMaxFlowersSetting) {
+      this.settingMaxFlowers.addEventListener('input', (e) => {
+        this.valMaxFlowersSetting.textContent = e.target.value;
+        this.flowerRenderer.maxFlowers = parseInt(e.target.value, 10);
+      });
+    }
+
+    if (this.settingFlowerScale && this.valScaleSetting) {
+      this.settingFlowerScale.addEventListener('input', (e) => {
+        this.valScaleSetting.textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+      });
+    }
+
+    if (this.settingMirrorVideo) {
+      this.settingMirrorVideo.addEventListener('change', (e) => {
+        this.isMirrored = e.target.checked;
+        if (this.videoElement) {
+          this.videoElement.style.transform = this.isMirrored ? 'scaleX(-1)' : 'none';
+        }
+      });
+    }
+
+    if (this.saveSettingsBtn) {
+      this.saveSettingsBtn.addEventListener('click', () => {
+        this.showToast('✅', 'Studio Engine Preferences Saved Successfully');
+      });
+    }
+  }
+
+  // --- Command Palette Search ---
+  setupSearchCommandPalette() {
+    if (!this.globalSearchInput || !this.searchDropdown) return;
+
+    const buildResults = (query) => {
+      const q = query.toLowerCase().trim();
+      if (!q) {
+        this.searchDropdown.style.display = 'none';
+        return;
+      }
+
+      const matchingFlowers = FLOWER_LIST.filter((f) =>
+        f.name.toLowerCase().includes(q) || (f.family && f.family.toLowerCase().includes(q))
+      ).map((f) => ({
+        type: 'flower',
+        icon: f.emoji,
+        title: f.name,
+        subtitle: `Specimen • ${f.family || 'Botanical'}`,
+        id: f.id
+      }));
+
+      const views = [
+        { type: 'view', icon: '🎨', title: 'Interactive Studio Canvas', subtitle: 'Live Vision Drawing', id: 'studio' },
+        { type: 'view', icon: '📊', title: 'Vision Telemetry & Data', subtitle: 'Analytics Dashboard', id: 'analytics' },
+        { type: 'view', icon: '🌿', title: 'Botanical Specimen Library', subtitle: 'Flora Collection', id: 'library' },
+        { type: 'view', icon: '🖐️', title: 'Gesture Matrix & Calibrator', subtitle: 'Control Matrix', id: 'gestures' },
+        { type: 'view', icon: '⚙️', title: 'Studio Settings & AI Models', subtitle: 'Engine Config', id: 'settings' }
+      ].filter((v) => v.title.toLowerCase().includes(q) || v.subtitle.toLowerCase().includes(q));
+
+      const allMatches = [...matchingFlowers, ...views];
+
+      if (allMatches.length === 0) {
+        this.searchDropdown.innerHTML = `<div style="padding: 8px 12px; font-size: 12px; color: var(--text-muted);">No results found for "${query}"</div>`;
+      } else {
+        this.searchDropdown.innerHTML = allMatches.map((item) => `
+          <button class="search-dropdown-item" data-type="${item.type}" data-id="${item.id}">
+            <span>${item.icon}</span>
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-weight: 600;">${item.title}</span>
+              <span style="font-size: 11px; color: var(--text-muted);">${item.subtitle}</span>
+            </div>
+          </button>
+        `).join('');
+
+        this.searchDropdown.querySelectorAll('.search-dropdown-item').forEach((itemBtn) => {
+          itemBtn.addEventListener('click', () => {
+            const type = itemBtn.getAttribute('data-type');
+            const id = itemBtn.getAttribute('data-id');
+            if (type === 'flower') {
+              this.selectFlower(id);
+              this.switchView('studio');
+            } else if (type === 'view') {
+              this.switchView(id);
+            }
+            this.searchDropdown.style.display = 'none';
+            this.globalSearchInput.value = '';
+          });
+        });
+      }
+
+      this.searchDropdown.style.display = 'flex';
+    };
+
+    this.globalSearchInput.addEventListener('input', (e) => {
+      buildResults(e.target.value);
+    });
+
+    this.globalSearchInput.addEventListener('focus', (e) => {
+      if (e.target.value) buildResults(e.target.value);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!this.globalSearchInput.contains(e.target) && !this.searchDropdown.contains(e.target)) {
+        this.searchDropdown.style.display = 'none';
+      }
+    });
+  }
+
+  // --- Export Modal & High-Res Snapshot ---
+  setupExportModal() {
+    if (this.exportSnapshotBtn) {
+      this.exportSnapshotBtn.addEventListener('click', () => {
+        this.openExportModal();
+      });
+    }
+
+    if (this.exportModalClose) {
+      this.exportModalClose.addEventListener('click', () => {
+        this.closeExportModal();
+      });
+    }
+
+    if (this.downloadExportBtn) {
+      this.downloadExportBtn.addEventListener('click', () => {
+        this.performArtworkDownload();
+      });
+    }
+  }
+
+  openExportModal() {
+    if (!this.exportModal) return;
+    this.exportModal.classList.remove('hidden');
+
+    // Render Preview to Preview Canvas
+    if (this.exportPreviewCanvas && this.drawingCanvas) {
+      const pCtx = this.exportPreviewCanvas.getContext('2d');
+      pCtx.clearRect(0, 0, this.exportPreviewCanvas.width, this.exportPreviewCanvas.height);
+      pCtx.drawImage(this.drawingCanvas, 0, 0, this.exportPreviewCanvas.width, this.exportPreviewCanvas.height);
+    }
+  }
+
+  closeExportModal() {
+    if (this.exportModal) {
+      this.exportModal.classList.add('hidden');
+    }
+  }
+
+  performArtworkDownload() {
+    const format = this.exportFormatSelect?.value || 'png';
+    const backdrop = this.exportBackdropSelect?.value || 'transparent';
+
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = this.drawingCanvas.width || 1920;
+    exportCanvas.height = this.drawingCanvas.height || 1080;
+    const ctx = exportCanvas.getContext('2d');
+
+    if (backdrop === 'backdrop' && this.videoElement && this.videoElement.videoWidth > 0) {
+      ctx.save();
+      if (this.isMirrored) {
+        ctx.scale(-1, 1);
+        ctx.drawImage(this.videoElement, -exportCanvas.width, 0, exportCanvas.width, exportCanvas.height);
+      } else {
+        ctx.drawImage(this.videoElement, 0, 0, exportCanvas.width, exportCanvas.height);
+      }
+      ctx.restore();
+    } else if (backdrop !== 'transparent') {
+      ctx.fillStyle = '#0a0e17';
+      ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    }
+
+    // Draw the high-resolution flower artwork
+    ctx.drawImage(this.drawingCanvas, 0, 0);
+
+    const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const dataUrl = exportCanvas.toDataURL(mimeType, 0.95);
+
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `AuraBloom_Garden_${Date.now()}.${format === 'jpeg' ? 'jpg' : 'png'}`;
+    a.click();
+
+    this.closeExportModal();
+    this.showToast('📥', 'Botanical Artwork Exported!');
+  }
+
+  // --- Keyboard Shortcuts Modal ---
+  setupShortcutsModal() {
+    if (this.shortcutsModalBtn) {
+      this.shortcutsModalBtn.addEventListener('click', () => {
+        this.shortcutsModal?.classList.remove('hidden');
+      });
+    }
+
+    if (this.shortcutsModalClose) {
+      this.shortcutsModalClose.addEventListener('click', () => {
+        this.shortcutsModal?.classList.add('hidden');
+      });
+    }
+  }
+
+  // --- UI Event Listeners ---
   setupUIEventListeners() {
     if (this.clearBtn) {
       this.clearBtn.addEventListener('click', () => {
@@ -279,7 +794,38 @@ class App {
       });
     }
 
+    if (this.resetTelemetryBtn) {
+      this.resetTelemetryBtn.addEventListener('click', () => {
+        this.gestureCounts = { pointing: 0, open_palm: 0, peace: 0, thumbs_up: 0, fist: 0, pinch: 0 };
+        this.recentEventsLog = [];
+        this.renderTelemetryTable();
+        this.showToast('📊', 'Telemetry History Reset');
+      });
+    }
+
+    if (this.exportTelemetryCsvBtn) {
+      this.exportTelemetryCsvBtn.addEventListener('click', () => {
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + ["Timestamp,Hand,Gesture,Confidence,Action"].concat(
+              this.recentEventsLog.map(e => `${e.time},${e.hand},${e.gesture},${e.conf},${e.action}`)
+            ).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `AuraBloom_Telemetry_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.showToast('📄', 'Telemetry CSV Exported');
+      });
+    }
+
     window.addEventListener('keydown', (e) => {
+      // Don't trigger shortcuts when focused on inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         this.undoStroke();
       } else if (e.key.toLowerCase() === 'c') {
@@ -292,13 +838,23 @@ class App {
         this.cycleFlowerVariety();
       } else if (e.key.toLowerCase() === 'm') {
         this.toggleDrawingMode();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        this.globalSearchInput?.focus();
+      } else if (e.key === '?') {
+        this.shortcutsModal?.classList.remove('hidden');
+      } else if (e.key === 'Escape') {
+        this.closeExportModal();
+        this.shortcutsModal?.classList.add('hidden');
+        if (this.searchDropdown) this.searchDropdown.style.display = 'none';
       }
     });
   }
 
+  // --- Mouse / Touch Simulation for Fallback / Demo ---
   setupMouseSimulation() {
     const handlePointerDown = (e) => {
-      if (e.target.closest('.control-dock') || e.target.closest('.header-hud') || e.target.closest('.botanical-card-hud') || e.target.closest('.modal-overlay')) {
+      if (e.target.closest('.control-dock') || e.target.closest('.glass-sidebar') || e.target.closest('.glass-navbar') || e.target.closest('.botanical-card-hud') || e.target.closest('.modal-overlay') || e.target.closest('.gesture-guide-banner') || e.target.closest('.debug-hud') || e.target.closest('.studio-top-ribbon-bar')) {
         return;
       }
 
@@ -341,61 +897,120 @@ class App {
     window.addEventListener('touchend', handlePointerUp);
   }
 
+  // --- Action Dispatcher Bindings ---
   setupActionBindings() {
-    // 1. Continuous DRAW_START
     this.actionDispatcher.on('DRAW_START', ({ trackId, point }) => {
       this.flowerRenderer.startStroke(trackId, point);
       this.updateUndoState();
+      this.logGestureEvent('Pointing', 'DRAW_START', 0.95);
     });
 
-    // 2. Continuous DRAW_MOVE (Real-time path tracking & distance-based blooming)
     this.actionDispatcher.on('DRAW_MOVE', ({ trackId, point }) => {
       this.flowerRenderer.addStrokePoint(trackId, point);
     });
 
-    // 3. Continuous DRAW_END
     this.actionDispatcher.on('DRAW_END', ({ trackId }) => {
       this.flowerRenderer.endStroke(trackId);
       this.updateUndoState();
     });
 
-    // 4. HOVER / OPEN PALM: Botanical Inspection
     this.actionDispatcher.on('HOVER', ({ point }) => {
       const hit = this.flowerRenderer.setHoverPoint(point);
       if (hit) {
         this.updateBotanicalCard(hit);
       }
+      this.logGestureEvent('Open Palm', 'HOVER_INSPECT', 0.92);
     });
 
-    // 5. CYCLE FLOWER: Peace Sign
     this.actionDispatcher.on('CYCLE_FLOWER', () => {
       this.cycleFlowerVariety();
+      this.logGestureEvent('Peace Sign', 'CYCLE_FLOWER', 0.97);
     });
 
-    // 6. CLEAR CANVAS: Closed Fist / Thumbs Up
     this.actionDispatcher.on('CLEAR_CANVAS', () => {
       this.clearCanvas();
+      this.logGestureEvent('Thumbs Up', 'CLEAR_CANVAS', 0.98);
     });
+  }
+
+  logGestureEvent(gesture, action, conf) {
+    const timeStr = new Date().toLocaleTimeString();
+    const eventObj = {
+      time: timeStr,
+      hand: 'Right',
+      gesture,
+      conf: `${Math.round(conf * 100)}%`,
+      pos: 'Center Screen',
+      action
+    };
+
+    this.recentEventsLog.unshift(eventObj);
+    if (this.recentEventsLog.length > 15) {
+      this.recentEventsLog.pop();
+    }
+
+    if (this.activeView === 'analytics') {
+      this.renderTelemetryTable();
+    }
+  }
+
+  renderTelemetryTable() {
+    if (!this.telemetryEventTableBody) return;
+
+    if (this.recentEventsLog.length === 0) {
+      this.telemetryEventTableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-empty-row">No gestures detected yet. Wave your hand in front of the camera to begin streaming.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    this.telemetryEventTableBody.innerHTML = this.recentEventsLog.map((item) => `
+      <tr>
+        <td style="font-family: monospace; font-size: 11px;">${item.time}</td>
+        <td><span class="meta-tag">${item.hand}</span></td>
+        <td><strong>${item.gesture}</strong></td>
+        <td><span class="kpi-badge emerald">${item.conf}</span></td>
+        <td style="font-size: 11px; color: var(--text-muted);">${item.pos}</td>
+        <td><span class="meta-tag active">${item.action}</span></td>
+      </tr>
+    `).join('');
   }
 
   clearCanvas() {
     this.flowerRenderer.clear();
     this.updateUndoState();
-    this.showToast('🧹', 'Garden Cleared');
+    this.showToast('🧹', 'Garden Canvas Cleared');
   }
 
   undoStroke() {
     const success = this.flowerRenderer.undo();
     if (success) {
-      this.showToast('↩️', 'Undo Last Stroke');
+      this.showToast('↩️', 'Reverted Last Bloom Stroke');
     }
     this.updateUndoState();
   }
 
   updateUndoState() {
+    const flowerCount = this.flowerRenderer.flowers.length;
+    const maxFlowers = this.flowerRenderer.maxFlowers;
+
     if (this.undoBtn) {
-      const hasContent = this.flowerRenderer.flowers.length > 0 || this.flowerRenderer.completedStrokes.length > 0;
+      const hasContent = flowerCount > 0 || this.flowerRenderer.completedStrokes.length > 0;
       this.undoBtn.disabled = !hasContent;
+    }
+
+    // Update Sidebar telemetry & metrics
+    if (this.sidebarBloomsCount) {
+      this.sidebarBloomsCount.textContent = `${flowerCount} / ${maxFlowers}`;
+    }
+    if (this.sidebarBloomsFill) {
+      const pct = Math.min(100, Math.round((flowerCount / maxFlowers) * 100));
+      this.sidebarBloomsFill.style.width = `${pct}%`;
+    }
+    if (this.analyticsBloomsVal) {
+      this.analyticsBloomsVal.textContent = flowerCount;
     }
   }
 
@@ -403,52 +1018,137 @@ class App {
     if (this.toastTimeout) {
       clearTimeout(this.toastTimeout);
     }
-    this.toastIcon.textContent = icon;
-    this.toastText.textContent = text;
-    this.actionToast.classList.add('show');
-
-    this.toastTimeout = setTimeout(() => {
-      this.actionToast.classList.remove('show');
-    }, 1800);
+    if (this.toastIcon) this.toastIcon.textContent = icon;
+    if (this.toastText) this.toastText.textContent = text;
+    if (this.actionToast) {
+      this.actionToast.classList.add('show');
+      this.toastTimeout = setTimeout(() => {
+        this.actionToast.classList.remove('show');
+      }, 2000);
+    }
   }
 
   setStatus(text, state = 'ready') {
-    this.statusText.textContent = text;
-    this.statusDot.className = `status-dot ${state}`;
+    if (this.statusText) this.statusText.textContent = text;
+    if (this.statusDot) this.statusDot.className = `status-dot ${state}`;
   }
 
   handleCameraReady() {
     this.hideModal();
     this.setStatus('Camera Active', 'ready');
+    if (this.sidebarVisionStatus) this.sidebarVisionStatus.textContent = 'Online (60fps)';
   }
 
   handleCameraError(err) {
     this.setStatus('Camera Setup Needed', 'error');
-    this.modalIconContainer.className = 'modal-icon-ring error';
-    this.modalIconContainer.innerHTML = `
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>
-    `;
-    this.modalTitle.textContent = 'Camera Access Required';
-    this.modalDesc.textContent =
-      err.message ||
-      'Camera permission is required for real-time hand gesture tracking. Click Allow Camera Access below, or try Mouse Demo Mode.';
-    this.modalBtn.style.display = 'inline-block';
-    this.modalBtn.textContent = 'Allow Camera Access';
-    this.modalDemoBtn.style.display = 'inline-block';
-    this.modalHelpTip.style.display = 'block';
+    if (this.sidebarVisionStatus) this.sidebarVisionStatus.textContent = 'Needs Access';
+
+    if (this.modalIconContainer) {
+      this.modalIconContainer.className = 'modal-icon-ring error';
+      this.modalIconContainer.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      `;
+    }
+    if (this.modalTitle) this.modalTitle.textContent = 'Camera Access Required';
+    if (this.modalDesc) {
+      this.modalDesc.textContent =
+        err.message ||
+        'Camera permission is required for real-time hand gesture tracking. Click Allow Camera Access below, or try Mouse Demo Mode.';
+    }
+    if (this.modalBtn) {
+      this.modalBtn.style.display = 'inline-block';
+      this.modalBtn.textContent = 'Allow Camera Access';
+    }
+    if (this.modalDemoBtn) this.modalDemoBtn.style.display = 'inline-block';
+    if (this.modalHelpTip) this.modalHelpTip.style.display = 'block';
     this.showModal();
   }
 
   showModal() {
-    this.modalOverlay.classList.remove('hidden');
+    this.modalOverlay?.classList.remove('hidden');
   }
 
   hideModal() {
-    this.modalOverlay.classList.add('hidden');
+    this.modalOverlay?.classList.add('hidden');
+  }
+
+  // --- Real-Time Telemetry Chart Rendering ---
+  renderTelemetryChart() {
+    if (!this.telemetryCanvas || this.activeView !== 'analytics') return;
+
+    const ctx = this.telemetryCanvas.getContext('2d');
+    const width = this.telemetryCanvas.width;
+    const height = this.telemetryCanvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw Grid Lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < height; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Draw Latency Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+
+    const step = width / (this.latencyHistory.length - 1);
+    const maxVal = 20; // 20ms ceiling
+
+    this.latencyHistory.forEach((val, i) => {
+      const x = i * step;
+      const normalizedY = height - (Math.min(val, maxVal) / maxVal) * (height - 20) - 10;
+      if (i === 0) {
+        ctx.moveTo(x, normalizedY);
+      } else {
+        ctx.lineTo(x, normalizedY);
+      }
+    });
+    ctx.stroke();
+
+    // Area Fill
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.fill();
+
+    // Update Gesture Distribution Bars
+    if (this.gestureBarsContainer) {
+      const totalGestures = Object.values(this.gestureCounts).reduce((a, b) => a + b, 0) || 1;
+      const gestureLabels = {
+        pointing: 'Pointing / Drag',
+        open_palm: 'Open Palm Hover',
+        peace: 'Peace Sign (Cycle)',
+        thumbs_up: 'Thumbs Up (Clear)',
+        fist: 'Closed Fist'
+      };
+
+      this.gestureBarsContainer.innerHTML = Object.entries(gestureLabels).map(([key, label]) => {
+        const count = this.gestureCounts[key] || 0;
+        const pct = Math.round((count / totalGestures) * 100);
+        return `
+          <div class="gesture-bar-item">
+            <div class="bar-meta">
+              <span class="bar-name">${label}</span>
+              <span class="bar-count">${count} (${pct}%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   }
 
   // --- Main Animation Frame Loop ---
@@ -522,20 +1222,26 @@ class App {
           const conf = Math.round((mainHand.confidence || 0.9) * 100);
 
           if (this.detectionPill) {
-            this.detectionPill.className = 'detection-pill detected';
+            this.detectionPill.className = 'glass-pill-badge detected';
             this.detectionPillText.textContent = `🟢 ${classifiedHands.length} Hand (${mainHand.handedness} • ${mainGesture} • ${conf}%)`;
           }
           this.setStatus(`Garden Active • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
+
+          // Increment gesture counter for analytics
+          const gKey = mainHand.gestureResult.gesture;
+          if (this.gestureCounts[gKey] !== undefined) {
+            this.gestureCounts[gKey]++;
+          }
         } else {
           if (this.detectionPill) {
-            this.detectionPill.className = 'detection-pill searching';
+            this.detectionPill.className = 'glass-pill-badge searching';
             this.detectionPillText.textContent = '👀 Searching for hands...';
           }
           this.setStatus(`Garden Ready • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
         }
       } else if (this.isDemoMode) {
         if (this.detectionPill) {
-          this.detectionPill.className = 'detection-pill searching';
+          this.detectionPill.className = 'glass-pill-badge searching';
           this.detectionPillText.textContent = `🎨 Interactive Mode (${flowerCount}/${maxFlowers} Blooms)`;
         }
       }
@@ -557,6 +1263,26 @@ class App {
       this.debugOverlay.updateMetrics(inferenceTime);
       this.debugOverlay.updateHands(classifiedHands);
 
+      // Rolling Telemetry History
+      this.latencyHistory.push(parseFloat(inferenceTime.toFixed(1)));
+      if (this.latencyHistory.length > 60) this.latencyHistory.shift();
+
+      this.frameCountSinceFpsUpdate++;
+      const now = performance.now();
+      if (now - this.lastFpsUpdateTime >= 500) {
+        this.currentFps = parseFloat(((this.frameCountSinceFpsUpdate * 1000) / (now - this.lastFpsUpdateTime)).toFixed(1));
+        this.frameCountSinceFpsUpdate = 0;
+        this.lastFpsUpdateTime = now;
+
+        if (this.analyticsFpsVal) this.analyticsFpsVal.textContent = this.currentFps.toFixed(1);
+        if (this.analyticsLatVal) this.analyticsLatVal.textContent = inferenceTime.toFixed(1);
+      }
+
+      // Render Telemetry Analytics Chart
+      if (this.activeView === 'analytics') {
+        this.renderTelemetryChart();
+      }
+
       requestAnimationFrame(renderLoop);
     };
 
@@ -566,5 +1292,5 @@ class App {
 
 // Instantiate on DOM Load
 window.addEventListener('DOMContentLoaded', () => {
-  new App();
+  new AuraBloomStudioApp();
 });
