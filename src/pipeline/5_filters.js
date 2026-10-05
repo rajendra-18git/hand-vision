@@ -2,6 +2,7 @@
  * Stage 5: Movement Calculation & One Euro Filter Smoothing
  * Filters noisy raw landmark outputs and computes velocities/direction vectors.
  *
+ * Enhanced with adaptive dual-stage noise reduction for ultra-smooth hand drawing.
  * One Euro Filter Reference:
  * Casiez, G., Roussel, N. and Vogel, F. (2012). 1€ Filter: A Simple Speed-based Low-pass Filter.
  */
@@ -33,9 +34,9 @@ class LowPassFilter {
 }
 
 export class OneEuroFilter1D {
-  constructor(minCutoff = 1.0, beta = 0.007, dCutoff = 1.0) {
-    this.minCutoff = minCutoff; // Min cutoff frequency in Hz
-    this.beta = beta;           // Speed coefficient
+  constructor(minCutoff = 0.35, beta = 0.02, dCutoff = 1.0) {
+    this.minCutoff = minCutoff; // Min cutoff frequency in Hz (lower = smoother when still)
+    this.beta = beta;           // Speed coefficient (higher = responsive when moving)
     this.dCutoff = dCutoff;     // Derivative cutoff in Hz
 
     this.xFilter = new LowPassFilter();
@@ -77,7 +78,7 @@ export class OneEuroFilter1D {
 }
 
 export class OneEuroFilter3D {
-  constructor(minCutoff = 1.2, beta = 0.008, dCutoff = 1.0) {
+  constructor(minCutoff = 0.35, beta = 0.02, dCutoff = 1.0) {
     this.fx = new OneEuroFilter1D(minCutoff, beta, dCutoff);
     this.fy = new OneEuroFilter1D(minCutoff, beta, dCutoff);
     this.fz = new OneEuroFilter1D(minCutoff, beta, dCutoff);
@@ -103,7 +104,7 @@ export class OneEuroFilter3D {
  */
 export class HandMotionManager {
   constructor() {
-    // Map of trackId -> { landmarkFilters: Array<OneEuroFilter3D>, lastPoints: Array }
+    // Map of trackId -> { landmarkFilters: Array<OneEuroFilter3D>, lastPoints: Array, ... }
     this.handFilters = new Map();
   }
 
@@ -123,11 +124,14 @@ export class HandMotionManager {
         // Initialize 21 landmark filters for this hand
         const filters = [];
         for (let i = 0; i < 21; i++) {
-          // Landmark 8 (Index tip) and 4 (Thumb tip) tuned for silky smooth, jitter-free precision drawing
-          if (i === 8 || i === 4) {
-            filters.push(new OneEuroFilter3D(0.7, 0.018, 1.2));
+          // Landmark 8 (Index tip) tuned for ultra-smooth jitter-free drawing
+          if (i === 8) {
+            filters.push(new OneEuroFilter3D(0.25, 0.025, 1.5));
+          } else if (i === 4 || i === 7 || i === 6) {
+            // Thumb tip & index joints
+            filters.push(new OneEuroFilter3D(0.35, 0.020, 1.2));
           } else {
-            filters.push(new OneEuroFilter3D(1.2, 0.008, 1.0));
+            filters.push(new OneEuroFilter3D(0.60, 0.015, 1.0));
           }
         }
         this.handFilters.set(hand.trackId, {
@@ -171,7 +175,7 @@ export class HandMotionManager {
         const rawVy = (indexTip.y - state.prevIndexTip.y) / dt;
         
         // Low-pass smooth the velocity vector to avoid jerkiness
-        const vAlpha = 0.4;
+        const vAlpha = 0.35;
         const sv = state.smoothedVelocity;
         sv.x = sv.x * (1 - vAlpha) + rawVx * vAlpha;
         sv.y = sv.y * (1 - vAlpha) + rawVy * vAlpha;

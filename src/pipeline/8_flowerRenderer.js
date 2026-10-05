@@ -2,25 +2,21 @@
  * Stage 8: Real-Time Continuous Floral Trail & Botanical Rendering Engine
  * 
  * Features:
- * - Continuous drawing along index finger path in real-time.
- * - Distance-based flower placement along smooth Catmull-Rom splines.
- * - Photorealistic transparent PNG flower assets with natural size/rotation jitter.
- * - Configurable capacity (50-60+ flowers) that persist on canvas.
+ * - StreamLine spring-damper stroke stabilizer for ultra-smooth hand drawing.
+ * - Distance-based flower placement along smooth Quadratic Bézier / Catmull-Rom splines.
+ * - Photorealistic transparent PNG flower assets with organic rotation & size jitter.
+ * - Persistent capacity (up to 60 flowers) with smooth blossoming pop animations.
  * - Dual Mode: 'flower' (botanical trail with stems & blossoms) & 'plain' (smooth glowing trail).
- * - Smooth blossom pop animations, subtle leaves behind petals, and ambient pollen bursts.
+ * - Subtle leaves tucked behind petals and floating pollen particle bursts.
  */
 
 import { FLOWER_COLLECTION, FLOWER_LIST } from '../render/palette.js';
-import { dist2D, catmullRom } from '../utils/geometry.js';
+import { dist2D } from '../utils/geometry.js';
 
 function easeOutBack(x) {
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-}
-
-function easeOutCubic(x) {
-  return 1 - Math.pow(1 - x, 3);
 }
 
 export class FlowerRenderer {
@@ -49,6 +45,9 @@ export class FlowerRenderer {
     // Ambient floating particles
     this.particles = [];
     this.maxParticles = 140;
+
+    // Streamline smoothing coefficient (0.0 = raw, 0.7 = super smooth stream)
+    this.smoothingWeight = 0.65;
 
     // High-Resolution Transparent PNG Photographic Flower Assets
     this.images = {
@@ -167,7 +166,7 @@ export class FlowerRenderer {
     };
   }
 
-  // --- Real-time Continuous Stroke Lifecycle ---
+  // --- Real-time Continuous Stroke Lifecycle with StreamLine Smoothing ---
 
   startStroke(trackId, point) {
     if (!point) return;
@@ -179,16 +178,17 @@ export class FlowerRenderer {
       mode: this.mode,
       flowerId: activeVariety.id,
       color: activeVariety.color || '#ec4899',
+      // Store raw and smoothed positions
+      currentPos: { x: point.x, y: point.y },
       points: [{ x: point.x, y: point.y, time: now }],
       distSinceLastFlower: 0,
-      nextFlowerDistance: 38 + Math.random() * 14,
+      nextFlowerDistance: 36 + Math.random() * 12,
       flowerCount: 0,
       startTime: now
     };
 
     this.activeStrokes.set(trackId, stroke);
 
-    // In flower mode, plant the opening bloom at the starting touch/point
     if (this.mode === 'flower') {
       this.spawnFlowerAtPoint(point.x, point.y, stroke.flowerId, now);
       stroke.flowerCount++;
@@ -197,37 +197,49 @@ export class FlowerRenderer {
     this.spawnPollenBurst(point, stroke.color);
   }
 
-  addStrokePoint(trackId, point) {
-    if (!point) return;
+  addStrokePoint(trackId, targetPoint) {
+    if (!targetPoint) return;
     const stroke = this.activeStrokes.get(trackId);
     if (!stroke) {
-      this.startStroke(trackId, point);
+      this.startStroke(trackId, targetPoint);
       return;
     }
 
     const now = performance.now();
+
+    // StreamLine / Spring-damper interpolation for silky smooth curve tracking
+    const factor = 1.0 - this.smoothingWeight;
+    const smoothX = stroke.currentPos.x + (targetPoint.x - stroke.currentPos.x) * factor;
+    const smoothY = stroke.currentPos.y + (targetPoint.y - stroke.currentPos.y) * factor;
+    stroke.currentPos = { x: smoothX, y: smoothY };
+
     const lastPoint = stroke.points[stroke.points.length - 1];
-    const d = dist2D(lastPoint, point);
+    const d = dist2D(lastPoint, stroke.currentPos);
 
-    // Filter out negligible micro-tremors (< 2px)
-    if (d < 2) return;
+    // Micro-jitter threshold (must move at least 1.5px to add point)
+    if (d < 1.5) return;
 
-    stroke.points.push({ x: point.x, y: point.y, time: now });
+    stroke.points.push({ x: smoothX, y: smoothY, time: now });
     stroke.distSinceLastFlower += d;
 
     // Continuous distance-based floral trail placement
     if (stroke.mode === 'flower') {
       while (stroke.distSinceLastFlower >= stroke.nextFlowerDistance) {
         stroke.distSinceLastFlower -= stroke.nextFlowerDistance;
-        stroke.nextFlowerDistance = 38 + Math.random() * 14;
+        stroke.nextFlowerDistance = 36 + Math.random() * 12;
 
-        // Calculate slight perpendicular jitter for organic branching
-        const angle = Math.atan2(point.y - lastPoint.y, point.x - lastPoint.x);
+        // Sub-pixel position along the current segment
+        const t = Math.max(0, Math.min(1, 1 - (stroke.distSinceLastFlower / d)));
+        const interpX = lastPoint.x + (smoothX - lastPoint.x) * t;
+        const interpY = lastPoint.y + (smoothY - lastPoint.y) * t;
+
+        // Perpendicular organic jitter
+        const angle = Math.atan2(smoothY - lastPoint.y, smoothX - lastPoint.x);
         const perpAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-        const perpOffset = (Math.random() - 0.5) * 8;
+        const perpOffset = (Math.random() - 0.5) * 6;
 
-        const spawnX = point.x + Math.cos(perpAngle) * perpOffset;
-        const spawnY = point.y + Math.sin(perpAngle) * perpOffset;
+        const spawnX = interpX + Math.cos(perpAngle) * perpOffset;
+        const spawnY = interpY + Math.sin(perpAngle) * perpOffset;
 
         const variety = (this.activeFlowerId === 'allMix')
           ? this.resolveFlowerVariety('allMix')
@@ -237,9 +249,8 @@ export class FlowerRenderer {
         stroke.flowerCount++;
       }
     } else {
-      // Plain line mode: emit subtle glowing sparkle particles along stroke
-      if (Math.random() > 0.4) {
-        this.spawnPollenBurst(point, stroke.color, 1);
+      if (Math.random() > 0.35) {
+        this.spawnPollenBurst({ x: smoothX, y: smoothY }, stroke.color, 1);
       }
     }
   }
@@ -250,7 +261,7 @@ export class FlowerRenderer {
 
     this.activeStrokes.delete(trackId);
 
-    // If stroke was a fast tap with no movement in flower mode, guarantee at least 1 flower
+    // If fast tap with no distance, guarantee at least 1 flower
     if (stroke.mode === 'flower' && stroke.flowerCount === 0 && stroke.points.length > 0) {
       const pt = stroke.points[0];
       this.spawnFlowerAtPoint(pt.x, pt.y, stroke.flowerId, performance.now());
@@ -259,7 +270,6 @@ export class FlowerRenderer {
 
     if (stroke.points.length > 1) {
       this.completedStrokes.push(stroke);
-      // Keep completed strokes history bounded
       if (this.completedStrokes.length > 30) {
         this.completedStrokes.shift();
       }
@@ -270,7 +280,6 @@ export class FlowerRenderer {
     const newFlower = this.createFlowerInstance(flowerId, x, y, null, undefined, now);
     this.flowers.push(newFlower);
 
-    // Maintain configurable max flowers limit (40-60)
     if (this.flowers.length > this.maxFlowers) {
       this.flowers.shift();
     }
@@ -279,19 +288,19 @@ export class FlowerRenderer {
     return newFlower;
   }
 
-  spawnPollenBurst(point, color = '#fbbf24', count = 6) {
+  spawnPollenBurst(point, color = '#fbbf24', count = 5) {
     for (let i = 0; i < count; i++) {
       if (this.particles.length >= this.maxParticles) {
         this.particles.shift();
       }
       const angle = Math.random() * Math.PI * 2;
-      const speed = 20 + Math.random() * 60;
+      const speed = 20 + Math.random() * 50;
       this.particles.push({
         x: point.x,
         y: point.y,
-        vx: Math.cos(angle) * (speed * 0.03),
-        vy: Math.sin(angle) * (speed * 0.03) - 0.2,
-        size: 2 + Math.random() * 3,
+        vx: Math.cos(angle) * (speed * 0.025),
+        vy: Math.sin(angle) * (speed * 0.025) - 0.15,
+        size: 2 + Math.random() * 2.5,
         color: color,
         opacity: 0.9,
         life: 1.0,
@@ -348,7 +357,7 @@ export class FlowerRenderer {
     // 1. Clear Drawing Canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 2. Render Completed & Active Connecting Stem Trails
+    // 2. Render Completed & Active Connecting Stem Trails with Midpoint Béziers
     this.renderStrokeTrails(this.ctx);
 
     // 3. Render Leaves Behind Flower Heads
@@ -376,7 +385,7 @@ export class FlowerRenderer {
       if (stroke.mode === 'flower') {
         // Natural organic green stem connecting the blossoms
         ctx.strokeStyle = 'rgba(46, 125, 50, 0.45)';
-        ctx.lineWidth = 3.0;
+        ctx.lineWidth = 3.2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
@@ -397,20 +406,14 @@ export class FlowerRenderer {
       if (pts.length === 2) {
         ctx.lineTo(pts[1].x, pts[1].y);
       } else {
-        // Smooth Catmull-Rom spline curves through finger path
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p0 = pts[Math.max(0, i - 1)];
-          const p1 = pts[i];
-          const p2 = pts[i + 1];
-          const p3 = pts[Math.min(pts.length - 1, i + 2)];
-
-          const steps = 4;
-          for (let s = 1; s <= steps; s++) {
-            const t = s / steps;
-            const pt = catmullRom(p0, p1, p2, p3, t);
-            ctx.lineTo(pt.x, pt.y);
-          }
+        // Ultra-smooth Quadratic Bézier through midpoints
+        for (let i = 1; i < pts.length - 1; i++) {
+          const midX = (pts[i].x + pts[i + 1].x) / 2;
+          const midY = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
         }
+        const last = pts[pts.length - 1];
+        ctx.lineTo(last.x, last.y);
       }
 
       ctx.stroke();
@@ -562,7 +565,6 @@ export class FlowerRenderer {
   undo() {
     if (this.completedStrokes.length > 0) {
       const removedStroke = this.completedStrokes.pop();
-      // Remove flowers created by this stroke
       if (removedStroke.flowerCount > 0) {
         this.flowers.splice(-removedStroke.flowerCount, removedStroke.flowerCount);
       }
