@@ -1,7 +1,7 @@
 /**
- * AuraBloom — Fullscreen Interactive Botanical Garden Engine
- * Connects MediaPipe Vision AI pipeline, photorealistic flower rendering,
- * gesture classification, and Glassmorphism 2.0 HUD controls.
+ * AuraBloom — Interactive Botanical Garden & AI Studio Orchestrator
+ * Connects MediaPipe AI vision pipeline, photorealistic flower rendering,
+ * toggleable Glassmorphism 2.0 Studio Dashboard, and gesture controls.
  */
 
 import { CameraManager } from './pipeline/1_capture.js';
@@ -20,13 +20,23 @@ import { UndoManager } from './utils/undoManager.js';
 
 class AuraBloomApp {
   constructor() {
-    // 1. Viewport & Canvas Stack
+    // 1. Root & Viewport Stack
+    this.appLayout = document.getElementById('app');
     this.viewport = document.getElementById('viewport');
     this.videoElement = document.getElementById('webcam-video');
     this.drawingCanvas = document.getElementById('drawing-canvas');
     this.skeletonCanvas = document.getElementById('skeleton-canvas');
 
-    // 2. Header Indicators & Controls
+    // 2. Dashboard Navigation & Sidebar
+    this.sidebar = document.getElementById('main-sidebar');
+    this.sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+    this.dashboardToggleBtn = document.getElementById('dashboard-toggle-btn');
+    this.dashboardToggleLabel = document.getElementById('dashboard-toggle-label');
+    this.navItems = document.querySelectorAll('.nav-item');
+    this.viewPanels = document.querySelectorAll('.view-panel');
+    this.headerViewSubtitle = document.getElementById('header-view-subtitle');
+
+    // 3. Header Indicators & Controls
     this.statusPill = document.getElementById('status-pill');
     this.statusText = document.getElementById('status-text');
     this.statusDot = this.statusPill?.querySelector('.status-dot');
@@ -35,7 +45,7 @@ class AuraBloomApp {
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     this.exportSnapshotBtn = document.getElementById('export-snapshot-btn');
 
-    // 3. Botanical Ribbon & HUD
+    // 4. Botanical Ribbon & HUD
     this.flowerRibbon = document.getElementById('flower-ribbon');
     this.botanicalCard = document.getElementById('botanical-card-hud');
     this.botanicalAvatar = document.getElementById('botanical-avatar');
@@ -44,7 +54,7 @@ class AuraBloomApp {
     this.botanicalFamily = document.getElementById('botanical-family');
     this.botanicalDesc = document.getElementById('botanical-desc');
 
-    // 4. Control Dock Buttons
+    // 5. Studio Dock Buttons
     this.undoBtn = document.getElementById('undo-btn');
     this.clearBtn = document.getElementById('clear-btn');
     this.triggerBtn = document.getElementById('trigger-btn');
@@ -54,7 +64,12 @@ class AuraBloomApp {
     this.debugToggleBtn = document.getElementById('debug-toggle-btn');
     this.shortcutsModalBtn = document.getElementById('shortcuts-modal-btn');
 
-    // 5. Modals
+    // 6. Sidebar Health Elements
+    this.sidebarVisionStatus = document.getElementById('sidebar-vision-status');
+    this.sidebarBloomsCount = document.getElementById('sidebar-blooms-count');
+    this.sidebarBloomsFill = document.getElementById('sidebar-blooms-fill');
+
+    // 7. Modals
     this.modalOverlay = document.getElementById('modal-overlay');
     this.modalTitle = document.getElementById('modal-title');
     this.modalDesc = document.getElementById('modal-desc');
@@ -73,10 +88,48 @@ class AuraBloomApp {
     this.shortcutsModal = document.getElementById('shortcuts-modal-overlay');
     this.shortcutsModalClose = document.getElementById('shortcuts-modal-close');
 
-    // 6. Action Toast Banner
+    // 8. Action Toast Notification Banner
     this.actionToast = document.getElementById('action-toast');
     this.toastText = document.getElementById('toast-text');
     this.toastIcon = document.getElementById('toast-icon');
+
+    // 9. Analytics & Telemetry Elements
+    this.telemetryCanvas = document.getElementById('telemetry-chart-canvas');
+    this.analyticsFpsVal = document.getElementById('analytics-fps-val');
+    this.analyticsLatVal = document.getElementById('analytics-lat-val');
+    this.analyticsBloomsVal = document.getElementById('analytics-blooms-val');
+    this.analyticsConfVal = document.getElementById('analytics-conf-val');
+    this.gestureBarsContainer = document.getElementById('gesture-bars-container');
+    this.telemetryEventTableBody = document.getElementById('telemetry-event-table-body');
+    this.resetTelemetryBtn = document.getElementById('reset-telemetry-btn');
+    this.exportTelemetryCsvBtn = document.getElementById('export-telemetry-csv');
+
+    // 10. Botanical Library Elements
+    this.specimensGrid = document.getElementById('specimens-grid');
+    this.libraryFilterTabs = document.getElementById('library-filter-tabs');
+
+    // 11. Gesture Matrix Elements
+    this.sliderPointThreshold = document.getElementById('slider-point-threshold');
+    this.valPointThreshold = document.getElementById('val-point-threshold');
+    this.sliderPalmSpread = document.getElementById('slider-palm-spread');
+    this.valPalmSpread = document.getElementById('val-palm-spread');
+    this.sliderPeaceCooldown = document.getElementById('slider-peace-cooldown');
+    this.valPeaceCooldown = document.getElementById('val-peace-cooldown');
+    this.sliderThumbHold = document.getElementById('slider-thumb-hold');
+    this.valThumbHold = document.getElementById('val-thumb-hold');
+    this.resetGesturesBtn = document.getElementById('reset-gestures-btn');
+
+    // 12. Settings Form Elements
+    this.settingMinConfidence = document.getElementById('setting-min-confidence');
+    this.valConfSetting = document.getElementById('val-conf-setting');
+    this.settingFilterSmoothing = document.getElementById('setting-filter-smoothing');
+    this.valFilterSetting = document.getElementById('val-filter-setting');
+    this.settingMirrorVideo = document.getElementById('setting-mirror-video');
+    this.settingMaxFlowers = document.getElementById('setting-max-flowers');
+    this.valMaxFlowersSetting = document.getElementById('val-max-flowers-setting');
+    this.settingFlowerScale = document.getElementById('setting-flower-scale');
+    this.valScaleSetting = document.getElementById('val-scale-setting');
+    this.saveSettingsBtn = document.getElementById('save-settings-btn');
 
     // Pipeline Stage Instances
     this.cameraManager = new CameraManager({
@@ -99,15 +152,25 @@ class AuraBloomApp {
     this.debugOverlay = new DebugOverlay(document.getElementById('debug-hud'));
     this.undoManager = new UndoManager();
 
-    // State Variables
+    // App State
     this.isMirrored = true;
     this.currentFlowerIndex = 0;
     this.currentFlowerId = 'allMix';
     this.toastTimeout = null;
+    this.isDashboardOpen = false;
+    this.activeView = 'studio';
 
     // Demo Mode State
     this.isDemoMode = false;
     this.isMouseDown = false;
+
+    // Telemetry Telemetry History State
+    this.latencyHistory = new Array(60).fill(4.0);
+    this.gestureCounts = { pointing: 0, open_palm: 0, peace: 0, thumbs_up: 0, fist: 0, pinch: 0 };
+    this.recentEventsLog = [];
+    this.lastFpsUpdateTime = performance.now();
+    this.frameCountSinceFpsUpdate = 0;
+    this.currentFps = 60.0;
 
     this.init();
   }
@@ -115,14 +178,18 @@ class AuraBloomApp {
   async init() {
     this.setupTheme();
     this.setupResizeHandler();
+    this.setupDashboardNavigation();
     this.setupFlowerRibbon();
+    this.setupBotanicalLibrary();
+    this.setupGestureMatrix();
+    this.setupSettingsView();
     this.setupExportModal();
     this.setupShortcutsModal();
     this.setupUIEventListeners();
     this.setupActionBindings();
     this.setupMouseSimulation();
 
-    // Select default botanical mix
+    // Select default flower
     this.selectFlower('allMix');
     this.updateModeUI();
 
@@ -187,6 +254,72 @@ class AuraBloomApp {
     }
   }
 
+  // --- Dashboard Drawer & View Switcher ---
+  setupDashboardNavigation() {
+    const toggleDashboard = () => {
+      this.isDashboardOpen = !this.isDashboardOpen;
+      this.appLayout.classList.toggle('dashboard-open', this.isDashboardOpen);
+      if (this.dashboardToggleBtn) {
+        this.dashboardToggleBtn.classList.toggle('active', this.isDashboardOpen);
+      }
+      if (this.dashboardToggleLabel) {
+        this.dashboardToggleLabel.textContent = this.isDashboardOpen ? 'Close Menu' : 'Dashboard';
+      }
+      this.showToast(this.isDashboardOpen ? '📊' : '🎨', this.isDashboardOpen ? 'Studio Dashboard Opened' : 'Fullscreen Garden View');
+    };
+
+    if (this.dashboardToggleBtn) {
+      this.dashboardToggleBtn.addEventListener('click', toggleDashboard);
+    }
+
+    if (this.sidebarCloseBtn) {
+      this.sidebarCloseBtn.addEventListener('click', () => {
+        this.isDashboardOpen = false;
+        this.appLayout.classList.remove('dashboard-open');
+        this.dashboardToggleBtn?.classList.remove('active');
+        if (this.dashboardToggleLabel) this.dashboardToggleLabel.textContent = 'Dashboard';
+      });
+    }
+
+    this.navItems.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const viewId = btn.getAttribute('data-view');
+        this.switchView(viewId);
+      });
+    });
+  }
+
+  switchView(viewId) {
+    this.activeView = viewId;
+
+    this.navItems.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-view') === viewId);
+    });
+
+    this.viewPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `view-${viewId}`);
+    });
+
+    const subtitles = {
+      studio: 'Botanical Vision Canvas',
+      analytics: 'Vision Telemetry & Data',
+      library: 'Botanical Specimen Library',
+      gestures: 'Gesture Recognition Matrix',
+      settings: 'Engine & Visual Settings'
+    };
+
+    if (this.headerViewSubtitle) {
+      this.headerViewSubtitle.textContent = subtitles[viewId] || 'Botanical Vision';
+    }
+
+    // If switched back to studio canvas on small screen, auto-collapse drawer
+    if (viewId === 'studio' && window.innerWidth < 900) {
+      this.isDashboardOpen = false;
+      this.appLayout.classList.remove('dashboard-open');
+      this.dashboardToggleBtn?.classList.remove('active');
+    }
+  }
+
   // --- Canvas Resizing ---
   setupResizeHandler() {
     const handleResize = () => {
@@ -245,6 +378,12 @@ class AuraBloomApp {
       });
     }
 
+    if (this.specimensGrid) {
+      this.specimensGrid.querySelectorAll('.specimen-card').forEach((card) => {
+        card.classList.toggle('active-selected', card.getAttribute('data-specimen-id') === flowerId);
+      });
+    }
+
     this.updateBotanicalCard(flower);
     this.showToast(flower.emoji, `Active Specimen: ${flower.name}`);
   }
@@ -277,6 +416,159 @@ class AuraBloomApp {
     }
     if (this.triggerBtn) {
       this.triggerBtn.classList.toggle('active', this.flowerRenderer.mode === 'flower');
+    }
+  }
+
+  // --- Botanical Specimen Library ---
+  setupBotanicalLibrary() {
+    if (!this.specimensGrid) return;
+
+    this.renderSpecimenCards('all');
+
+    if (this.libraryFilterTabs) {
+      this.libraryFilterTabs.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.libraryFilterTabs.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const family = btn.getAttribute('data-family');
+          this.renderSpecimenCards(family);
+        });
+      });
+    }
+  }
+
+  renderSpecimenCards(familyFilter = 'all') {
+    if (!this.specimensGrid) return;
+
+    const filtered = FLOWER_LIST.filter((f) => {
+      if (familyFilter === 'all') return true;
+      return f.family && f.family.toLowerCase().includes(familyFilter.toLowerCase());
+    });
+
+    this.specimensGrid.innerHTML = filtered.map((flower) => {
+      const isSelected = flower.id === this.currentFlowerId;
+      return `
+        <div class="glass-card specimen-card ${isSelected ? 'active-selected' : ''}" data-specimen-id="${flower.id}">
+          <div class="specimen-top">
+            <div class="specimen-avatar-box">${flower.emoji}</div>
+            <div class="specimen-info-col">
+              <h3>${flower.name}</h3>
+              <span class="specimen-binomial">${flower.scientificName || 'Flora'}</span>
+            </div>
+          </div>
+          <div class="specimen-tags-row">
+            <span class="meta-tag active">${flower.family || 'Botanical'}</span>
+            <span class="meta-tag">Scale: ${flower.defaultScale || 1.2}x</span>
+            <span class="meta-tag">Duration: ${flower.bloomDuration || 350}ms</span>
+          </div>
+          <p class="specimen-desc">${flower.description || ''}</p>
+          <button class="glass-action-btn ${isSelected ? 'primary' : 'secondary'} specimen-card-btn" data-specimen-id="${flower.id}">
+            ${isSelected ? 'Active Specimen' : 'Select for Studio'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    this.specimensGrid.querySelectorAll('.specimen-card-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const flowerId = btn.getAttribute('data-specimen-id');
+        this.selectFlower(flowerId);
+        this.switchView('studio');
+      });
+    });
+
+    this.specimensGrid.querySelectorAll('.specimen-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const flowerId = card.getAttribute('data-specimen-id');
+        this.selectFlower(flowerId);
+      });
+    });
+  }
+
+  // --- Gesture Recognition Matrix Controls ---
+  setupGestureMatrix() {
+    if (this.sliderPointThreshold && this.valPointThreshold) {
+      this.sliderPointThreshold.addEventListener('input', (e) => {
+        this.valPointThreshold.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.sliderPalmSpread && this.valPalmSpread) {
+      this.sliderPalmSpread.addEventListener('input', (e) => {
+        this.valPalmSpread.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.sliderPeaceCooldown && this.valPeaceCooldown) {
+      this.sliderPeaceCooldown.addEventListener('input', (e) => {
+        this.valPeaceCooldown.textContent = `${e.target.value}ms`;
+      });
+    }
+
+    if (this.sliderThumbHold && this.valThumbHold) {
+      this.sliderThumbHold.addEventListener('input', (e) => {
+        this.valThumbHold.textContent = `${e.target.value}ms`;
+      });
+    }
+
+    if (this.resetGesturesBtn) {
+      this.resetGesturesBtn.addEventListener('click', () => {
+        if (this.sliderPointThreshold) this.sliderPointThreshold.value = '0.70';
+        if (this.valPointThreshold) this.valPointThreshold.textContent = '0.70';
+        if (this.sliderPalmSpread) this.sliderPalmSpread.value = '0.45';
+        if (this.valPalmSpread) this.valPalmSpread.textContent = '0.45';
+        if (this.sliderPeaceCooldown) this.sliderPeaceCooldown.value = '450';
+        if (this.valPeaceCooldown) this.valPeaceCooldown.textContent = '450ms';
+        if (this.sliderThumbHold) this.sliderThumbHold.value = '300';
+        if (this.valThumbHold) this.valThumbHold.textContent = '300ms';
+        this.showToast('⚙️', 'Gesture Sensitivity Matrix Reset');
+      });
+    }
+  }
+
+  // --- Studio Engine Settings ---
+  setupSettingsView() {
+    if (this.settingMinConfidence && this.valConfSetting) {
+      this.settingMinConfidence.addEventListener('input', (e) => {
+        this.valConfSetting.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    if (this.settingFilterSmoothing && this.valFilterSetting) {
+      this.settingFilterSmoothing.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        this.valFilterSetting.textContent = val.toFixed(2);
+        this.flowerRenderer.smoothingWeight = val;
+      });
+    }
+
+    if (this.settingMaxFlowers && this.valMaxFlowersSetting) {
+      this.settingMaxFlowers.addEventListener('input', (e) => {
+        this.valMaxFlowersSetting.textContent = e.target.value;
+        this.flowerRenderer.maxFlowers = parseInt(e.target.value, 10);
+      });
+    }
+
+    if (this.settingFlowerScale && this.valScaleSetting) {
+      this.settingFlowerScale.addEventListener('input', (e) => {
+        this.valScaleSetting.textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+      });
+    }
+
+    if (this.settingMirrorVideo) {
+      this.settingMirrorVideo.addEventListener('change', (e) => {
+        this.isMirrored = e.target.checked;
+        if (this.videoElement) {
+          this.videoElement.style.transform = this.isMirrored ? 'scaleX(-1)' : 'none';
+        }
+      });
+    }
+
+    if (this.saveSettingsBtn) {
+      this.saveSettingsBtn.addEventListener('click', () => {
+        this.showToast('✅', 'Preferences Saved Successfully');
+      });
     }
   }
 
@@ -419,8 +711,41 @@ class AuraBloomApp {
       });
     }
 
+    if (this.resetTelemetryBtn) {
+      this.resetTelemetryBtn.addEventListener('click', () => {
+        this.gestureCounts = { pointing: 0, open_palm: 0, peace: 0, thumbs_up: 0, fist: 0, pinch: 0 };
+        this.recentEventsLog = [];
+        this.renderTelemetryTable();
+        this.showToast('📊', 'Telemetry History Reset');
+      });
+    }
+
+    if (this.exportTelemetryCsvBtn) {
+      this.exportTelemetryCsvBtn.addEventListener('click', () => {
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + ["Timestamp,Hand,Gesture,Confidence,Action"].concat(
+              this.recentEventsLog.map(e => `${e.time},${e.hand},${e.gesture},${e.conf},${e.action}`)
+            ).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `AuraBloom_Telemetry_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.showToast('📄', 'Telemetry CSV Exported');
+      });
+    }
+
     window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        this.dashboardToggleBtn?.click();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         this.undoStroke();
       } else if (e.key.toLowerCase() === 'c') {
         this.clearCanvas();
@@ -437,6 +762,9 @@ class AuraBloomApp {
       } else if (e.key === 'Escape') {
         this.closeExportModal();
         this.shortcutsModal?.classList.add('hidden');
+        if (this.isDashboardOpen) {
+          this.sidebarCloseBtn?.click();
+        }
       }
     });
   }
@@ -444,7 +772,7 @@ class AuraBloomApp {
   // --- Mouse / Touch Simulation for Fallback / Demo ---
   setupMouseSimulation() {
     const handlePointerDown = (e) => {
-      if (e.target.closest('.control-dock') || e.target.closest('.header-hud') || e.target.closest('.botanical-card-hud') || e.target.closest('.modal-overlay') || e.target.closest('.gesture-guide-banner') || e.target.closest('.debug-hud')) {
+      if (e.target.closest('.control-dock') || e.target.closest('.glass-sidebar') || e.target.closest('.glass-navbar') || e.target.closest('.botanical-card-hud') || e.target.closest('.modal-overlay') || e.target.closest('.gesture-guide-banner') || e.target.closest('.debug-hud')) {
         return;
       }
 
@@ -492,6 +820,7 @@ class AuraBloomApp {
     this.actionDispatcher.on('DRAW_START', ({ trackId, point }) => {
       this.flowerRenderer.startStroke(trackId, point);
       this.updateUndoState();
+      this.logGestureEvent('Pointing', 'DRAW_START', 0.95);
     });
 
     this.actionDispatcher.on('DRAW_MOVE', ({ trackId, point }) => {
@@ -508,15 +837,63 @@ class AuraBloomApp {
       if (hit) {
         this.updateBotanicalCard(hit);
       }
+      this.logGestureEvent('Open Palm', 'HOVER_INSPECT', 0.92);
     });
 
     this.actionDispatcher.on('CYCLE_FLOWER', () => {
       this.cycleFlowerVariety();
+      this.logGestureEvent('Peace Sign', 'CYCLE_FLOWER', 0.97);
     });
 
     this.actionDispatcher.on('CLEAR_CANVAS', () => {
       this.clearCanvas();
+      this.logGestureEvent('Thumbs Up', 'CLEAR_CANVAS', 0.98);
     });
+  }
+
+  logGestureEvent(gesture, action, conf) {
+    const timeStr = new Date().toLocaleTimeString();
+    const eventObj = {
+      time: timeStr,
+      hand: 'Right',
+      gesture,
+      conf: `${Math.round(conf * 100)}%`,
+      pos: 'Center Screen',
+      action
+    };
+
+    this.recentEventsLog.unshift(eventObj);
+    if (this.recentEventsLog.length > 15) {
+      this.recentEventsLog.pop();
+    }
+
+    if (this.activeView === 'analytics') {
+      this.renderTelemetryTable();
+    }
+  }
+
+  renderTelemetryTable() {
+    if (!this.telemetryEventTableBody) return;
+
+    if (this.recentEventsLog.length === 0) {
+      this.telemetryEventTableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-empty-row">No gestures detected yet. Wave your hand in front of the camera to begin streaming.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    this.telemetryEventTableBody.innerHTML = this.recentEventsLog.map((item) => `
+      <tr>
+        <td style="font-family: monospace; font-size: 11px;">${item.time}</td>
+        <td><span class="meta-tag">${item.hand}</span></td>
+        <td><strong>${item.gesture}</strong></td>
+        <td><span class="kpi-badge emerald">${item.conf}</span></td>
+        <td style="font-size: 11px; color: var(--text-muted);">${item.pos}</td>
+        <td><span class="meta-tag active">${item.action}</span></td>
+      </tr>
+    `).join('');
   }
 
   clearCanvas() {
@@ -535,9 +912,22 @@ class AuraBloomApp {
 
   updateUndoState() {
     const flowerCount = this.flowerRenderer.flowers.length;
+    const maxFlowers = this.flowerRenderer.maxFlowers;
+
     if (this.undoBtn) {
       const hasContent = flowerCount > 0 || this.flowerRenderer.completedStrokes.length > 0;
       this.undoBtn.disabled = !hasContent;
+    }
+
+    if (this.sidebarBloomsCount) {
+      this.sidebarBloomsCount.textContent = `${flowerCount} / ${maxFlowers}`;
+    }
+    if (this.sidebarBloomsFill) {
+      const pct = Math.min(100, Math.round((flowerCount / maxFlowers) * 100));
+      this.sidebarBloomsFill.style.width = `${pct}%`;
+    }
+    if (this.analyticsBloomsVal) {
+      this.analyticsBloomsVal.textContent = flowerCount;
     }
   }
 
@@ -599,6 +989,81 @@ class AuraBloomApp {
 
   hideModal() {
     this.modalOverlay?.classList.add('hidden');
+  }
+
+  // --- Real-Time Telemetry Chart Rendering ---
+  renderTelemetryChart() {
+    if (!this.telemetryCanvas || this.activeView !== 'analytics') return;
+
+    const ctx = this.telemetryCanvas.getContext('2d');
+    const width = this.telemetryCanvas.width;
+    const height = this.telemetryCanvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw Grid Lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < height; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Draw Latency Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+
+    const step = width / (this.latencyHistory.length - 1);
+    const maxVal = 20;
+
+    this.latencyHistory.forEach((val, i) => {
+      const x = i * step;
+      const normalizedY = height - (Math.min(val, maxVal) / maxVal) * (height - 20) - 10;
+      if (i === 0) {
+        ctx.moveTo(x, normalizedY);
+      } else {
+        ctx.lineTo(x, normalizedY);
+      }
+    });
+    ctx.stroke();
+
+    // Area Fill
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.fill();
+
+    // Update Gesture Distribution Bars
+    if (this.gestureBarsContainer) {
+      const totalGestures = Object.values(this.gestureCounts).reduce((a, b) => a + b, 0) || 1;
+      const gestureLabels = {
+        pointing: 'Pointing / Drag',
+        open_palm: 'Open Palm Hover',
+        peace: 'Peace Sign (Cycle)',
+        thumbs_up: 'Thumbs Up (Clear)',
+        fist: 'Closed Fist'
+      };
+
+      this.gestureBarsContainer.innerHTML = Object.entries(gestureLabels).map(([key, label]) => {
+        const count = this.gestureCounts[key] || 0;
+        const pct = Math.round((count / totalGestures) * 100);
+        return `
+          <div class="gesture-bar-item">
+            <div class="bar-meta">
+              <span class="bar-name">${label}</span>
+              <span class="bar-count">${count} (${pct}%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   }
 
   // --- Main Animation Frame Loop ---
@@ -672,20 +1137,25 @@ class AuraBloomApp {
           const conf = Math.round((mainHand.confidence || 0.9) * 100);
 
           if (this.detectionPill) {
-            this.detectionPill.className = 'detection-pill detected';
+            this.detectionPill.className = 'glass-pill-badge detected';
             this.detectionPillText.textContent = `🟢 ${classifiedHands.length} Hand (${mainHand.handedness} • ${mainGesture} • ${conf}%)`;
           }
           this.setStatus(`Garden Active • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
+
+          const gKey = mainHand.gestureResult.gesture;
+          if (this.gestureCounts[gKey] !== undefined) {
+            this.gestureCounts[gKey]++;
+          }
         } else {
           if (this.detectionPill) {
-            this.detectionPill.className = 'detection-pill searching';
+            this.detectionPill.className = 'glass-pill-badge searching';
             this.detectionPillText.textContent = '👀 Searching for hands...';
           }
           this.setStatus(`Garden Ready • ${flowerCount}/${maxFlowers} Blooms`, 'ready');
         }
       } else if (this.isDemoMode) {
         if (this.detectionPill) {
-          this.detectionPill.className = 'detection-pill searching';
+          this.detectionPill.className = 'glass-pill-badge searching';
           this.detectionPillText.textContent = `🎨 Interactive Mode (${flowerCount}/${maxFlowers} Blooms)`;
         }
       }
@@ -706,6 +1176,24 @@ class AuraBloomApp {
       const inferenceTime = performance.now() - startTime;
       this.debugOverlay.updateMetrics(inferenceTime);
       this.debugOverlay.updateHands(classifiedHands);
+
+      this.latencyHistory.push(parseFloat(inferenceTime.toFixed(1)));
+      if (this.latencyHistory.length > 60) this.latencyHistory.shift();
+
+      this.frameCountSinceFpsUpdate++;
+      const now = performance.now();
+      if (now - this.lastFpsUpdateTime >= 500) {
+        this.currentFps = parseFloat(((this.frameCountSinceFpsUpdate * 1000) / (now - this.lastFpsUpdateTime)).toFixed(1));
+        this.frameCountSinceFpsUpdate = 0;
+        this.lastFpsUpdateTime = now;
+
+        if (this.analyticsFpsVal) this.analyticsFpsVal.textContent = this.currentFps.toFixed(1);
+        if (this.analyticsLatVal) this.analyticsLatVal.textContent = inferenceTime.toFixed(1);
+      }
+
+      if (this.activeView === 'analytics') {
+        this.renderTelemetryChart();
+      }
 
       requestAnimationFrame(renderLoop);
     };
