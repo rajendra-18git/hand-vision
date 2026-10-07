@@ -52,6 +52,14 @@ export class CameraManager {
     }
   }
 
+  async init(deviceId = null, facing = null) {
+    return this.start(deviceId, facing);
+  }
+
+  async flipCamera() {
+    return this.switchCamera();
+  }
+
   /**
    * Start camera with progressive constraint fallback
    */

@@ -46,17 +46,10 @@ export const HAND_CONNECTIONS = [
 export class KeypointExtractor {
   constructor() {}
 
-  /**
-   * Transforms raw MediaPipe detection results into structured Hand objects
-   * with accurate canvas-space pixel coordinates.
-   *
-   * @param {Object} detectionResults - Raw MediaPipe output
-   * @param {number} canvasWidth - Target canvas width in pixels
-   * @param {number} canvasHeight - Target canvas height in pixels
-   * @param {boolean} mirrored - Whether coordinate mirroring is active
-   * @param {Object} transform - { offsetX, offsetY, drawWidth, drawHeight }
-   * @returns {Array<Object>} Array of processed hand objects
-   */
+  extract(detectionResults, canvasWidth, canvasHeight, mirrored = true, transform = null) {
+    return this.process(detectionResults, canvasWidth, canvasHeight, mirrored, transform);
+  }
+
   process(detectionResults, canvasWidth, canvasHeight, mirrored = true, transform = null) {
     if (!detectionResults || !detectionResults.landmarks || detectionResults.landmarks.length === 0) {
       return [];

@@ -16,6 +16,10 @@ export class HandTracker {
     this.nextTrackId = 1;
   }
 
+  track(detectedHands, timestamp = performance.now()) {
+    return this.update(detectedHands, timestamp);
+  }
+
   /**
    * Updates tracking states with newly detected hands from the current frame
    * @param {Array<Object>} detectedHands - Hands processed by KeypointExtractor

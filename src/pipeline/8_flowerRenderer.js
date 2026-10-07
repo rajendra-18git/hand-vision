@@ -51,14 +51,14 @@ export class FlowerRenderer {
 
     // High-Resolution Transparent PNG Photographic Flower Assets
     this.images = {
-      pinkDahlia: this.loadImage('./assets/flowers/pink_dahlia.png'),
-      purpleRose: this.loadImage('./assets/flowers/purple_rose.png'),
-      pinkPlumeriaFrangipani: this.loadImage('./assets/flowers/pink_plumeria_frangipani.png'),
-      pinkPlumeria: this.loadImage('./assets/flowers/pink_plumeria.png'),
-      blueAfricanDaisy: this.loadImage('./assets/flowers/blue_african_daisy.png'),
-      whiteDaisy: this.loadImage('./assets/flowers/white_daisy.png'),
-      leaf: this.loadImage('./assets/flowers/daisy_leaf.png'),
-      petal: this.loadImage('./assets/flowers/daisy_petal.png')
+      pinkDahlia: this.loadImage('/assets/flowers/pink_dahlia.png'),
+      purpleRose: this.loadImage('/assets/flowers/purple_rose.png'),
+      pinkPlumeriaFrangipani: this.loadImage('/assets/flowers/pink_plumeria_frangipani.png'),
+      pinkPlumeria: this.loadImage('/assets/flowers/pink_plumeria.png'),
+      blueAfricanDaisy: this.loadImage('/assets/flowers/blue_african_daisy.png'),
+      whiteDaisy: this.loadImage('/assets/flowers/white_daisy.png'),
+      leaf: this.loadImage('/assets/flowers/daisy_leaf.png'),
+      petal: this.loadImage('/assets/flowers/daisy_petal.png')
     };
 
     // Pre-populate with initial natural welcome blooms
@@ -71,8 +71,9 @@ export class FlowerRenderer {
     img.loaded = false;
     img.onload = () => { img.loaded = true; };
     img.onerror = () => {
-      if (!src.startsWith('/')) {
-        img.src = '/' + src.replace(/^\.\//, '');
+      // Fallback relative path if running in subfolder
+      if (src.startsWith('/')) {
+        img.src = '.' + src;
       }
     };
     return img;
@@ -251,6 +252,59 @@ export class FlowerRenderer {
     } else {
       if (Math.random() > 0.35) {
         this.spawnPollenBurst({ x: smoothX, y: smoothY }, stroke.color, 1);
+      }
+    }
+  }
+
+  updateStroke(trackId, targetPoint) {
+    return this.addStrokePoint(trackId, targetPoint);
+  }
+
+  bloomAllFlowers(now = performance.now()) {
+    for (const flower of this.flowers) {
+      flower.birthTime = now;
+      this.spawnPollenBurst({ x: flower.x, y: flower.y }, '#fbbf24', 8);
+    }
+  }
+
+  renderAmbientParticles(now = performance.now()) {
+    this.updateParticles();
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.renderParticles(this.ctx);
+  }
+
+  processHands(hands, timestamp = performance.now()) {
+    const activeTrackIds = new Set();
+
+    if (hands && hands.length > 0) {
+      for (const hand of hands) {
+        const trackId = hand.trackId || 'hand_0';
+        activeTrackIds.add(trackId);
+
+        const gesture = hand.gesture || 'point';
+        const isDrawing = gesture === 'point' || gesture === 'pinch' || gesture === 'none';
+
+        if (isDrawing) {
+          const drawPoint = (gesture === 'pinch' && hand.pinchCenter) ? hand.pinchCenter : hand.indexTip;
+          if (drawPoint) {
+            if (!this.activeStrokes.has(trackId)) {
+              this.startStroke(trackId, drawPoint);
+            } else {
+              this.addStrokePoint(trackId, drawPoint);
+            }
+          }
+        } else {
+          if (this.activeStrokes.has(trackId)) {
+            this.endStroke(trackId);
+          }
+        }
+      }
+    }
+
+    // End strokes for hands no longer present
+    for (const [trackId] of this.activeStrokes.entries()) {
+      if (trackId !== 'mouse_ptr' && !activeTrackIds.has(trackId)) {
+        this.endStroke(trackId);
       }
     }
   }
@@ -472,9 +526,28 @@ export class FlowerRenderer {
       ctx.shadowBlur = isHovered ? 16 : 8 * bloom;
       ctx.shadowOffsetY = 3 * bloom;
 
-      if (img && img.loaded) {
+      if (img && (img.loaded || (img.complete && img.naturalWidth > 0))) {
         ctx.globalAlpha = Math.min(1.0, progress * 1.4);
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
+      } else {
+        // Procedural Vector Bloom Fallback
+        ctx.globalAlpha = Math.min(1.0, progress * 1.4);
+        const petalCount = 8;
+        const color = FLOWER_COLLECTION[fl.flowerId]?.color || '#ec4899';
+        ctx.fillStyle = color;
+        for (let p = 0; p < petalCount; p++) {
+          ctx.save();
+          ctx.rotate((p * Math.PI * 2) / petalCount);
+          ctx.beginPath();
+          ctx.ellipse(0, -size * 0.28, size * 0.16, size * 0.26, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        // Center pistil
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
       }
 
       // Highlight ring when hovered

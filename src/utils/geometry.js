@@ -56,3 +56,32 @@ export function catmullRom(p0, p1, p2, p3, t) {
     y: p0.y * f0 + p1.y * f1 + p2.y * f2 + p3.y * f3
   };
 }
+
+/**
+ * Calculates CSS object-fit: cover draw dimensions and offsets for exact canvas alignment
+ */
+export function getCoverTransform(videoWidth, videoHeight, containerWidth, containerHeight) {
+  if (!videoWidth || !videoHeight || !containerWidth || !containerHeight) {
+    return { offsetX: 0, offsetY: 0, drawWidth: containerWidth, drawHeight: containerHeight };
+  }
+  const videoAspect = videoWidth / videoHeight;
+  const containerAspect = containerWidth / containerHeight;
+  let drawWidth, drawHeight, offsetX, offsetY;
+
+  if (containerAspect > videoAspect) {
+    // Container is wider than video: fit width, crop height
+    drawWidth = containerWidth;
+    drawHeight = containerWidth / videoAspect;
+    offsetX = 0;
+    offsetY = (containerHeight - drawHeight) / 2;
+  } else {
+    // Container is taller than video: fit height, crop width
+    drawHeight = containerHeight;
+    drawWidth = containerHeight * videoAspect;
+    offsetX = (containerWidth - drawWidth) / 2;
+    offsetY = 0;
+  }
+
+  return { offsetX, offsetY, drawWidth, drawHeight };
+}
+
