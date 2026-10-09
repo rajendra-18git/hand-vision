@@ -90,16 +90,12 @@ export class GestureEngine {
       secondaryHand = recognizedHands[1];
     }
 
-    // Two-hand coordinated state & Invisibility Trigger
+    // Two-hand coordinated state
     const twoHandState = this.evaluateTwoHandInteraction(recognizedHands, timestamp);
     const invisibilityActive = !!(twoHandState && twoHandState.invisibilityTriggered);
 
     // Dominant active gesture
-    let activeGesture = primaryHand ? primaryHand.gesture : GESTURE_TYPES.NONE;
-    if (invisibilityActive) {
-      activeGesture = GESTURE_TYPES.INVISIBILITY;
-    }
-
+    const activeGesture = primaryHand ? primaryHand.gesture : GESTURE_TYPES.NONE;
     const pinchIntensity = primaryHand ? primaryHand.normalizedPinchDistance : 0.5;
 
     return {

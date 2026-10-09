@@ -731,17 +731,6 @@ class VisionGardenApp {
   }
 
   handleGestures(gestureResult, timestamp) {
-    const { primaryHand, activeGesture, invisibilityActive } = gestureResult;
-
-    // Gesture-triggered Invisibility Cloak
-    if (invisibilityActive && timestamp - this.lastActionTime > 800) {
-      this.invisibilityEngine.captureBackground(this.videoElement);
-      this.invisibilityEngine.setActive(true);
-      this.showToast('Invisibility Pose: Cloak Activated', '👻');
-      this.lastActionTime = timestamp;
-      return;
-    }
-
     if (!primaryHand) return;
 
     // Continuous Pinch Intensity Control (0.0 -> 1.0)
