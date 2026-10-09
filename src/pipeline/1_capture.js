@@ -1,18 +1,14 @@
 /**
  * Stage 1: Camera Capture
- * Manages getUserMedia stream with multi-tier fallback, camera enumeration,
- * facingMode toggling, and permission error handling.
+ * 
+ * Manages getUserMedia stream with multi-tier progressive constraint fallback,
+ * camera enumeration, facingMode toggling, and robust permission error handling.
  */
 
 export class CameraManager {
   constructor(options = {}) {
     this.videoElement = options.videoElement || document.createElement('video');
-    this.videoElement.autoplay = true;
-    this.videoElement.playsInline = true;
-    this.videoElement.muted = true;
-    this.videoElement.setAttribute('autoplay', 'true');
-    this.videoElement.setAttribute('playsinline', 'true');
-    this.videoElement.setAttribute('muted', 'true');
+    this.setupVideoElement(this.videoElement);
 
     this.currentStream = null;
     this.currentDeviceId = null;
@@ -23,19 +19,29 @@ export class CameraManager {
 
     this.isStreaming = false;
 
-    // Listen for device changes (plug/unplug)
-    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    // Listen for hardware device changes
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', () => {
         this.getDevices().then(this.onDevicesChanged);
       });
     }
   }
 
+  setupVideoElement(video) {
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+    video.setAttribute('autoplay', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
+  }
+
   /**
    * Enumerate available video input devices
    */
   async getDevices() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+    if (!navigator.mediaDevices?.enumerateDevices) {
       return [];
     }
     try {
@@ -64,12 +70,8 @@ export class CameraManager {
    * Start camera with progressive constraint fallback
    */
   async start(deviceId = null, facing = null) {
-    if (deviceId) {
-      this.currentDeviceId = deviceId;
-    }
-    if (facing) {
-      this.facingMode = facing;
-    }
+    if (deviceId) this.currentDeviceId = deviceId;
+    if (facing) this.facingMode = facing;
 
     this.stop();
 
@@ -81,7 +83,7 @@ export class CameraManager {
       throw unsupportedErr;
     }
 
-    // Constraint tier fallbacks
+    // Constraint tier fallbacks for maximum cross-platform hardware compatibility
     const constraintTiers = [];
 
     if (this.currentDeviceId) {
@@ -89,24 +91,37 @@ export class CameraManager {
         video: { deviceId: { exact: this.currentDeviceId } },
         audio: false
       });
-    } else {
-      constraintTiers.push({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: this.facingMode
-        },
-        audio: false
-      });
-      constraintTiers.push({
-        video: {
-          facingMode: this.facingMode
-        },
-        audio: false
-      });
     }
 
-    // Ultimate generic fallback
+    // Tier 1: Ideal HD 720p with flexible facingMode
+    constraintTiers.push({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: { ideal: this.facingMode }
+      },
+      audio: false
+    });
+
+    // Tier 2: HD without facingMode (for PC webcams without facingMode attribute)
+    constraintTiers.push({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+
+    // Tier 3: Standard resolution (640x480)
+    constraintTiers.push({
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
+    });
+
+    // Tier 4: Most permissive basic video constraint
     constraintTiers.push({
       video: true,
       audio: false
@@ -118,10 +133,12 @@ export class CameraManager {
     for (const constraints of constraintTiers) {
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (stream) break;
+        if (stream && stream.getVideoTracks().length > 0) {
+          break;
+        }
       } catch (err) {
         lastError = err;
-        console.warn('Constraint tier failed, attempting fallback...', constraints, err);
+        console.warn('Camera constraint tier failed, trying next fallback...', constraints, err.message);
       }
     }
 
@@ -132,15 +149,15 @@ export class CameraManager {
       if (lastError) {
         if (lastError.name === 'NotAllowedError' || lastError.name === 'PermissionDeniedError') {
           userFriendlyMessage =
-            'Camera permission was blocked. Please click the lock/settings icon next to the address bar in Chrome and set Camera to "Allow", then retry.';
+            'Camera permission was blocked. Please click the lock/settings icon next to the browser address bar and set Camera to "Allow", then refresh.';
         } else if (lastError.name === 'NotFoundError' || lastError.name === 'DevicesNotFoundError') {
           userFriendlyMessage =
-            'No webcam was detected on this device. Please connect a camera or switch to Interactive Demo Mode.';
+            'No webcam was detected on this device. Please connect a webcam or use Interactive Pointer Mode.';
         } else if (lastError.name === 'NotReadableError' || lastError.name === 'TrackStartError') {
           userFriendlyMessage =
-            'Your webcam is currently in use by another program (e.g. Teams, Zoom, or another tab). Please close other apps using the camera and retry.';
+            'Your webcam is currently in use by another program (e.g. Teams, Zoom, or another tab). Please close other apps and retry.';
         } else if (lastError.name === 'OverconstrainedError') {
-          userFriendlyMessage = 'Camera constraint could not be satisfied.';
+          userFriendlyMessage = 'Camera constraints could not be satisfied by your video hardware.';
         }
       }
 
@@ -153,26 +170,40 @@ export class CameraManager {
     this.currentStream = stream;
     this.videoElement.srcObject = stream;
 
+    // Ensure video plays smoothly
     try {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          // If metadata takes too long, resolve anyway
-          resolve();
-        }, 3000);
+      await new Promise((resolve) => {
+        let isResolved = false;
 
-        this.videoElement.onloadedmetadata = () => {
-          clearTimeout(timeout);
-          this.videoElement.play().then(resolve).catch(resolve);
+        const done = () => {
+          if (!isResolved) {
+            isResolved = true;
+            resolve();
+          }
         };
-        this.videoElement.onerror = (e) => {
+
+        const timeout = setTimeout(done, 1500);
+
+        if (this.videoElement.readyState >= 1) {
           clearTimeout(timeout);
-          reject(e);
-        };
+          done();
+        } else {
+          this.videoElement.onloadedmetadata = () => {
+            clearTimeout(timeout);
+            done();
+          };
+          this.videoElement.oncanplay = () => {
+            clearTimeout(timeout);
+            done();
+          };
+        }
       });
 
-      await this.videoElement.play().catch(() => {});
+      await this.videoElement.play().catch((playErr) => {
+        console.warn('Direct video.play() warning:', playErr);
+      });
     } catch (playErr) {
-      console.warn('Video play notification:', playErr);
+      console.warn('Video play handler notice:', playErr);
     }
 
     this.isStreaming = true;

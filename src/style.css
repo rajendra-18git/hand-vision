@@ -369,6 +369,7 @@ button {
 }
 
 #filter-canvas,
+#invisibility-canvas,
 #galaxy-canvas,
 #magic-canvas,
 #hologram-canvas,
@@ -384,13 +385,14 @@ button {
 }
 
 #filter-canvas { z-index: 2; }
-#galaxy-canvas { z-index: 3; }
-#magic-canvas { z-index: 4; }
-#hologram-canvas { z-index: 5; }
-#synth-canvas { z-index: 6; }
-#slash-canvas { z-index: 7; }
-#drawing-canvas { z-index: 8; }
-#skeleton-canvas { z-index: 9; }
+#invisibility-canvas { z-index: 3; }
+#galaxy-canvas { z-index: 4; }
+#magic-canvas { z-index: 5; }
+#hologram-canvas { z-index: 6; }
+#synth-canvas { z-index: 7; }
+#slash-canvas { z-index: 8; }
+#drawing-canvas { z-index: 9; }
+#skeleton-canvas { z-index: 10; }
 
 /* ==========================================
    3. Floating Minimal HUD Top Bar

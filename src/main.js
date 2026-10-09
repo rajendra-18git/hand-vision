@@ -258,8 +258,21 @@ class VisionGardenApp {
       this.showToast(active ? 'Invisibility Cloak Active' : 'Cloak Deactivated', '👻');
     });
 
+    // Status Pill Retry
+    this.statusPill?.addEventListener('click', () => {
+      if (!this.cameraManager.isStreaming) {
+        this.retryCamera();
+      }
+    });
+
     // Camera Flip & Fullscreen
-    this.btnCameraFlip?.addEventListener('click', () => this.cameraManager.flipCamera());
+    this.btnCameraFlip?.addEventListener('click', () => {
+      if (!this.cameraManager.isStreaming) {
+        this.retryCamera();
+      } else {
+        this.cameraManager.flipCamera();
+      }
+    });
     this.btnToggleFullscreen?.addEventListener('click', () => this.toggleFullscreen());
     this.btnToggleSkeleton?.addEventListener('click', () => {
       const active = this.skeletonRenderer.toggleSkeletonLines();
@@ -418,48 +431,73 @@ class VisionGardenApp {
     this.landingScreen.classList.add('hidden');
     this.mainExperience.classList.remove('hidden');
     this.handleResize();
-    this.updateStatus('Starting Camera & Vision AI...', 'loading');
+    this.updateStatus('Starting Camera...', 'loading');
 
     // Unlock Audio Context on start
     this.synthEngine?.initAudio();
 
+    // 1. Initialize Camera (immediate stream activation)
     try {
-      // 1. Initialize Camera
       await this.cameraManager.init();
-      
-      // 2. Initialize Modular Detector (MediaPipe / YOLO)
+      this.updateStatus('Camera Connected. Loading Vision...', 'loading');
+    } catch (camErr) {
+      console.warn('Camera stream warning:', camErr);
+      this.updateStatus('Camera Blocked (Click to retry)', 'error');
+      this.showToast(camErr.message || 'Camera permission required. Click status pill to retry.', '📷');
+    }
+
+    // 2. Initialize Modular Vision Detector (MediaPipe / YOLO)
+    try {
       const provider = await this.detector.init();
       this.updateProviderLabel(provider);
-
-      this.isRunning = true;
-      this.updateStatus('Vision Live', 'live');
-      this.showToast('Vision Live: Raise your hands', '✨');
-
-      // 3. Launch Core Vision Loop
-      requestAnimationFrame((ts) => this.renderLoop(ts));
-    } catch (err) {
-      console.warn('Camera stream warning, starting interactive canvas mode:', err);
-      this.isRunning = true;
+      if (this.cameraManager.isStreaming) {
+        this.updateStatus('Vision Live', 'live');
+        this.showToast('Vision Live: Raise your hands', '✨');
+      }
+    } catch (detErr) {
+      console.warn('Vision detector initialization warning:', detErr);
       this.updateStatus('Interactive Mode Active', 'live');
-      this.showToast('Pointer Mode Active — Draw with mouse or touch', '🌸');
-      requestAnimationFrame((ts) => this.renderLoop(ts));
+      this.showToast('Interactive Pointer Mode Active', '🌸');
+    }
+
+    this.isRunning = true;
+    requestAnimationFrame((ts) => this.renderLoop(ts));
+  }
+
+  async retryCamera() {
+    this.updateStatus('Requesting Camera Access...', 'loading');
+    this.showToast('Requesting camera access...', '📹');
+    try {
+      await this.cameraManager.start();
+      this.updateStatus('Vision Live', 'live');
+      this.showToast('Camera Connected Successfully!', '✨');
+      this.handleResize();
+    } catch (err) {
+      console.error('Camera retry failed:', err);
+      this.updateStatus('Camera Blocked (Click to retry)', 'error');
+      this.showToast(err.message || 'Camera permission denied in browser.', '⚠️');
     }
   }
 
   handleCameraReady() {
     this.handleResize();
+    this.updateStatus('Vision Live', 'live');
   }
 
   handleCameraError(err) {
     console.error('Camera error:', err);
-    this.updateStatus('Camera Blocked', 'error');
+    this.updateStatus('Camera Blocked (Click to retry)', 'error');
   }
 
   updateStatus(text, state = 'live') {
     if (this.statusText) this.statusText.textContent = text;
     if (this.statusDot) {
       this.statusDot.className = 'status-dot';
-      if (state === 'live') this.statusDot.classList.add('live');
+      if (state === 'live') {
+        this.statusDot.classList.add('live');
+      } else if (state === 'error') {
+        this.statusDot.classList.add('error');
+      }
     }
   }
 
