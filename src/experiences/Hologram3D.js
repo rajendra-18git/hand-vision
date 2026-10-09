@@ -65,6 +65,14 @@ export class Hologram3D {
     this.buildModel(this.activeModel);
   }
 
+  resize(w, h) {
+    if (this.camera && this.renderer) {
+      this.camera.aspect = (w || window.innerWidth) / (h || window.innerHeight);
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(w || window.innerWidth, h || window.innerHeight);
+    }
+  }
+
   setPointer(point) {
     this.pointerPos = point;
   }

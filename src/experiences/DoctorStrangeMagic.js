@@ -120,6 +120,15 @@ export class DoctorStrangeMagic {
       if (Math.random() > 0.35) {
         this.spawnSpark(this.pointerPos.x, this.pointerPos.y, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, '#ffaa00');
       }
+    } else {
+      // Ambient Idle Portal Mandala
+      const cx = w / 2;
+      const cy = h / 2;
+      const idlePulse = Math.sin(timestamp * 0.003) * 10 + 105;
+      this.renderTaoMandala(ctx, cx, cy, idlePulse, this.mandalaAngle * 0.7, 0, false, timestamp);
+      if (Math.random() > 0.3) {
+        this.spawnSpark(cx + (Math.random() - 0.5) * 120, cy + (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, '#ffaa00');
+      }
     }
 
     // 3. Render Sparks & Fiery Embers

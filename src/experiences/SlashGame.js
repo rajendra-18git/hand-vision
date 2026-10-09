@@ -25,11 +25,36 @@ export class SlashGame {
     this.lastSpawnTime = 0;
     this.prevFingerPos = null;
     this.pointerPos = null;
+
+    this.spawnInitialOrbs();
+  }
+
+  spawnInitialOrbs() {
+    const w = this.canvas.width || window.innerWidth || 800;
+    const h = this.canvas.height || window.innerHeight || 600;
+    const colors = ['#f43f5e', '#38bdf8', '#10b981', '#fbbf24', '#c084fc'];
+    
+    for (let i = 0; i < 3; i++) {
+      this.orbs.push({
+        id: Math.random(),
+        x: w * (0.25 + i * 0.25),
+        y: h * 0.45 + (i % 2 === 0 ? -40 : 30),
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -2.5 - Math.random() * 2,
+        radius: 34 + Math.random() * 10,
+        color: colors[i % colors.length],
+        points: 100,
+        sliced: false
+      });
+    }
   }
 
   resize(w, h) {
     this.canvas.width = w;
     this.canvas.height = h;
+    if (this.orbs.length === 0) {
+      this.spawnInitialOrbs();
+    }
   }
 
   setPointer(point) {

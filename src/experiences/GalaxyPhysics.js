@@ -107,6 +107,8 @@ export class GalaxyPhysics {
   initParticles() {
     const w = this.canvas.width || window.innerWidth;
     const h = this.canvas.height || window.innerHeight;
+    const cx = w / 2;
+    const cy = h / 2;
     this.particles = [];
 
     const preset = this.preset;
@@ -136,8 +138,8 @@ export class GalaxyPhysics {
         vz: (Math.random() - 0.5) * 0.2,
         ox: Math.cos(theta) * r,
         oy: Math.sin(theta) * r,
-        x: 0,
-        y: 0,
+        x: cx + Math.cos(theta) * r,
+        y: cy + Math.sin(theta) * r,
         vx: 0,
         vy: 0,
         size: isCore ? 1.8 + Math.random() * 2.2 : 1.0 + Math.random() * 1.8,
@@ -184,8 +186,8 @@ export class GalaxyPhysics {
         vz: (Math.random() - 0.5) * 0.1,
         ox: Math.cos(theta) * r,
         oy: Math.sin(theta) * r,
-        x: 0,
-        y: 0,
+        x: cx + Math.cos(theta) * r,
+        y: cy + Math.sin(theta) * r,
         vx: 0,
         vy: 0,
         size: isNebula ? 2.2 + Math.random() * 2.8 : 0.9 + Math.random() * 2.0,
@@ -213,8 +215,8 @@ export class GalaxyPhysics {
         vz: (Math.random() - 0.5) * 0.15,
         ox: Math.cos(theta) * r,
         oy: Math.sin(theta) * r,
-        x: 0,
-        y: 0,
+        x: cx + Math.cos(theta) * r,
+        y: cy + Math.sin(theta) * r,
         vx: 0,
         vy: 0,
         size: 0.8 + Math.random() * 1.2,
@@ -230,9 +232,7 @@ export class GalaxyPhysics {
   resize(w, h) {
     this.canvas.width = w;
     this.canvas.height = h;
-    if (this.particles.length === 0 || this.canvas.width <= 300) {
-      this.initParticles();
-    }
+    this.initParticles();
   }
 
   render(gestureResult, timestamp = performance.now()) {

@@ -746,6 +746,10 @@ class VisionGardenApp {
         this.slashEngine.render(gestureResult, timestamp);
         break;
 
+      case APP_MODES.CAPTURE:
+        this.renderFlowerLayer(gestureResult, timestamp);
+        break;
+
       default:
         break;
     }

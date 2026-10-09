@@ -258,29 +258,41 @@ export class ThereminSynth {
     ctx.restore();
   }
 
-  renderOscilloscope(ctx, w, h) {
-    if (!this.analyser || !this.dataArray || !this.isPlaying) return;
-
-    this.analyser.getByteTimeDomainData(this.dataArray);
-
+  renderOscilloscope(ctx, w, h, timestamp = performance.now()) {
     ctx.save();
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 3.0;
     ctx.strokeStyle = '#38bdf8';
     ctx.shadowColor = '#0284c7';
     ctx.shadowBlur = 18;
     ctx.beginPath();
 
-    const sliceWidth = w / this.dataArray.length;
-    let x = 0;
+    if (this.analyser && this.dataArray && this.isPlaying) {
+      this.analyser.getByteTimeDomainData(this.dataArray);
+      const sliceWidth = w / this.dataArray.length;
+      let x = 0;
 
-    for (let i = 0; i < this.dataArray.length; i++) {
-      const v = this.dataArray[i] / 128.0;
-      const y = (v * (h * 0.22)) + (h * 0.38);
+      for (let i = 0; i < this.dataArray.length; i++) {
+        const v = this.dataArray[i] / 128.0;
+        const y = (v * (h * 0.22)) + (h * 0.38);
 
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
 
-      x += sliceWidth;
+        x += sliceWidth;
+      }
+    } else {
+      // Ambient Idle Harmonic Wave
+      const segments = 80;
+      const sliceWidth = w / segments;
+      const baseMidY = h * 0.5;
+
+      for (let i = 0; i <= segments; i++) {
+        const x = i * sliceWidth;
+        const y = baseMidY + Math.sin(x * 0.012 + timestamp * 0.003) * 18 + Math.sin(x * 0.025 - timestamp * 0.002) * 8;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
     }
 
     ctx.stroke();
