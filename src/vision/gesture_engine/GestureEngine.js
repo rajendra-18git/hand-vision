@@ -1,17 +1,17 @@
 /**
  * VisionGarden AI - Centralized Gesture Engine
  * 
- * Provides robust geometric, kinematic, and temporal gesture recognition:
- * - 21 hand landmarks tracking per hand
- * - Finger curl & extension state
- * - Continuous pinch distance calculation (normalized 0.0 -> 1.0)
- * - Palm orientation & 3D rotation angles (roll, pitch, yaw)
- * - Velocity tracking & dynamic swipe detection (left, right, up, down)
- * - Two-hand coordination (Left: Mode/Item selection, Right: Intensity/Draw)
- * - Gesture confidence scoring and debounce stabilization
+ * Features:
+ * - 21 hand landmarks tracking per hand.
+ * - Palm-size normalized thumb-index pinch detection with hysteresis (enter < 0.38 scale, exit > 0.48 scale).
+ * - Continuous pinch distance calculation (normalized 0.0 -> 1.0 with quadratic easing).
+ * - Accidental trigger prevention with configurable hold durations, hysteresis gates, and cooldown timers.
+ * - Palm orientation & 3D rotation angles (roll, pitch, yaw).
+ * - Velocity tracking & dynamic swipe detection (left, right, up, down).
+ * - Two-hand coordination & Invisibility cloak gesture recognition.
  */
 
-import { dist2D, angleBetweenPoints } from '../../utils/geometry.js';
+import { dist2D } from '../../utils/geometry.js';
 import { LANDMARK_INDICES } from '../../pipeline/3_keypoints.js';
 
 export const GESTURE_TYPES = {
@@ -22,6 +22,7 @@ export const GESTURE_TYPES = {
   FIST: 'fist',
   PEACE: 'peace',
   THUMBS_UP: 'thumbs_up',
+  INVISIBILITY: 'invisibility',
   SWIPE_LEFT: 'swipe_left',
   SWIPE_RIGHT: 'swipe_right',
   SWIPE_UP: 'swipe_up',
@@ -31,15 +32,19 @@ export const GESTURE_TYPES = {
 export class GestureEngine {
   constructor(options = {}) {
     this.debug = options.debug || false;
-    this.swipeVelocityThreshold = options.swipeVelocityThreshold || 550; // px/sec
+    this.swipeVelocityThreshold = options.swipeVelocityThreshold || 520; // px/sec
     this.swipeCooldownMs = options.swipeCooldownMs || 450;
     
-    // Hand tracking history for kinematic velocity & swipe detection
-    // trackId -> { history: Array<{ x, y, time }>, lastSwipeTime: number, lastPinchDistance: number }
+    // Accidental trigger prevention settings
+    this.gestureHoldThresholdMs = options.gestureHoldThresholdMs || 180; // ms gesture must be held
+    this.actionCooldownMs = options.actionCooldownMs || 900; // ms cooldown between discrete actions
+    
+    // Hand tracking history for velocity & swipe detection
+    // trackId -> { history: Array<{ x, y, time }>, lastSwipeTime: number, isPinching: boolean, ... }
     this.handHistories = new Map();
 
     // Debounce & state stabilization
-    this.gestureHistory = new Map(); // trackId -> Array<{ gesture, timestamp }>
+    this.gestureHoldTracker = new Map(); // trackId -> { candidateGesture, startTime, confirmedGesture }
   }
 
   /**
@@ -56,7 +61,8 @@ export class GestureEngine {
         secondaryHand: null,
         activeGesture: GESTURE_TYPES.NONE,
         twoHandState: null,
-        pinchIntensity: 0.5
+        pinchIntensity: 0.5,
+        invisibilityActive: false
       };
     }
 
@@ -70,28 +76,30 @@ export class GestureEngine {
     for (const [id] of this.handHistories.entries()) {
       if (!activeTrackIds.has(id)) {
         this.handHistories.delete(id);
-        this.gestureHistory.delete(id);
+        this.gestureHoldTracker.delete(id);
       }
     }
 
-    // Determine primary and secondary hands (sorted by x position or dominance)
-    // In mirrored webcam: Left screen = user's right hand; Right screen = user's left hand
+    // Determine primary and secondary hands (sorted left to right on screen)
     let primaryHand = recognizedHands[0] || null;
     let secondaryHand = recognizedHands[1] || null;
 
     if (recognizedHands.length >= 2) {
-      // Sort left to right on screen
       recognizedHands.sort((a, b) => a.palmCenter.x - b.palmCenter.x);
-      // Primary is usually right side or dominant hand
       primaryHand = recognizedHands[0];
       secondaryHand = recognizedHands[1];
     }
 
-    // Two-hand coordinated state
+    // Two-hand coordinated state & Invisibility Trigger
     const twoHandState = this.evaluateTwoHandInteraction(recognizedHands, timestamp);
+    const invisibilityActive = !!(twoHandState && twoHandState.invisibilityTriggered);
 
-    // Get dominant active gesture
-    const activeGesture = primaryHand ? primaryHand.gesture : GESTURE_TYPES.NONE;
+    // Dominant active gesture
+    let activeGesture = primaryHand ? primaryHand.gesture : GESTURE_TYPES.NONE;
+    if (invisibilityActive) {
+      activeGesture = GESTURE_TYPES.INVISIBILITY;
+    }
+
     const pinchIntensity = primaryHand ? primaryHand.normalizedPinchDistance : 0.5;
 
     return {
@@ -100,35 +108,36 @@ export class GestureEngine {
       secondaryHand,
       activeGesture,
       twoHandState,
-      pinchIntensity
+      pinchIntensity,
+      invisibilityActive
     };
   }
 
   /**
-   * Performs in-depth geometric and kinematic feature extraction on a single hand
+   * Analyzes single hand geometry, normalized pinch with hysteresis, and gesture hold state
    */
   analyzeHand(hand, timestamp) {
     const lm = hand.landmarks;
-    const scale = Math.max(hand.handScale || 50, 30);
+    const scale = Math.max(hand.handScale || 50, 25);
     const wrist = lm[LANDMARK_INDICES.WRIST];
     const palmCenter = hand.palmCenter || {
       x: (wrist.x + lm[5].x + lm[17].x) / 3,
       y: (wrist.y + lm[5].y + lm[17].y) / 3
     };
 
-    // 1. History & Kinematic Movement Calculation
+    // 1. Hand History for Velocity & Swipe
     if (!this.handHistories.has(hand.trackId)) {
       this.handHistories.set(hand.trackId, {
         history: [],
         lastSwipeTime: 0,
-        lastPinchDistance: 0.5,
+        isPinching: false,
+        lastPinchRatio: 0.5,
         rotation: 0
       });
     }
     const historyState = this.handHistories.get(hand.trackId);
     historyState.history.push({ x: palmCenter.x, y: palmCenter.y, time: timestamp });
 
-    // Keep only last 300ms of history for velocity & swipe detection
     while (historyState.history.length > 0 && timestamp - historyState.history[0].time > 300) {
       historyState.history.shift();
     }
@@ -137,22 +146,22 @@ export class GestureEngine {
     const rotation = this.calculateHandRotation(lm, wrist, palmCenter);
     historyState.rotation = rotation;
 
-    // 2. Pinch Analysis (Continuous 0.0 -> 1.0 normalization)
-    const pinchData = this.calculatePinchMetrics(lm, scale);
-    historyState.lastPinchDistance = pinchData.normalizedDistance;
+    // 2. Stable Thumb-Index Pinch with Palm-Normalized Distance & Hysteresis
+    const pinchData = this.calculatePinchMetrics(lm, scale, historyState.isPinching);
+    historyState.isPinching = pinchData.isPinching;
+    historyState.lastPinchRatio = pinchData.normalizedDistance;
 
     // 3. Finger Curl & Extension Metrics
     const fingerStates = this.extractFingerStates(lm, wrist, palmCenter, scale);
 
-    // 4. Gesture Detection Pipeline
-    const isPinching = this.detectPinch(pinchData, fingerStates);
+    // 4. Raw Gesture Candidate Detection
     const isOpenPalm = this.detectOpenPalm(fingerStates);
-    const isFist = this.detectFist(fingerStates, isPinching);
-    const isPoint = this.detectPoint(fingerStates, isPinching);
+    const isFist = this.detectFist(fingerStates, pinchData.isPinching);
+    const isPoint = this.detectPoint(fingerStates, pinchData.isPinching);
     const isPeace = this.detectPeace(fingerStates);
-    const isThumbsUp = this.detectThumbsUp(lm, wrist, fingerStates, scale, isPinching);
+    const isThumbsUp = this.detectThumbsUp(lm, wrist, fingerStates, scale, pinchData.isPinching);
     
-    // Swipe check (with cooldown)
+    // Swipe check (with velocity & direction cooldown)
     let swipeGesture = null;
     if (timestamp - historyState.lastSwipeTime > this.swipeCooldownMs) {
       swipeGesture = this.detectSwipe(velocity);
@@ -161,35 +170,35 @@ export class GestureEngine {
       }
     }
 
-    // 5. Determine dominant discrete gesture
-    let gesture = GESTURE_TYPES.NONE;
+    // Determine candidate gesture
+    let rawGesture = GESTURE_TYPES.NONE;
     let confidence = 0.5;
 
     if (swipeGesture) {
-      gesture = swipeGesture;
+      rawGesture = swipeGesture;
       confidence = 0.95;
     } else if (isThumbsUp) {
-      gesture = GESTURE_TYPES.THUMBS_UP;
+      rawGesture = GESTURE_TYPES.THUMBS_UP;
       confidence = 0.98;
-    } else if (isPinching) {
-      gesture = GESTURE_TYPES.PINCH;
+    } else if (pinchData.isPinching) {
+      rawGesture = GESTURE_TYPES.PINCH;
       confidence = 0.97;
     } else if (isPoint) {
-      gesture = GESTURE_TYPES.POINT;
+      rawGesture = GESTURE_TYPES.POINT;
       confidence = 0.95;
     } else if (isPeace) {
-      gesture = GESTURE_TYPES.PEACE;
+      rawGesture = GESTURE_TYPES.PEACE;
       confidence = 0.96;
     } else if (isOpenPalm) {
-      gesture = GESTURE_TYPES.OPEN_PALM;
+      rawGesture = GESTURE_TYPES.OPEN_PALM;
       confidence = 0.94;
     } else if (isFist) {
-      gesture = GESTURE_TYPES.FIST;
+      rawGesture = GESTURE_TYPES.FIST;
       confidence = 0.92;
     }
 
-    // 6. Stabilize gesture with temporal buffer
-    gesture = this.stabilizeGesture(hand.trackId, gesture, confidence, timestamp);
+    // 5. Apply Configurable Hold Duration & Hysteresis to Prevent Accidental Triggers
+    const confirmedGesture = this.applyHoldStabilization(hand.trackId, rawGesture, timestamp);
 
     return {
       ...hand,
@@ -203,30 +212,36 @@ export class GestureEngine {
       rawPinchDistance: pinchData.distance,
       normalizedPinchDistance: pinchData.normalizedDistance,
       pinchPercentage: Math.round(pinchData.normalizedDistance * 100),
-      isPinching,
-      gesture,
+      isPinching: pinchData.isPinching,
+      gesture: confirmedGesture,
+      rawGesture,
       confidence,
       pointingPosition: isPoint ? lm[8] : null
     };
   }
 
   /**
-   * Continuous pinch calculation with non-linear easing for natural control
-   * Normalized 0.0 (completely touching) to 1.0 (fully open thumb-index span)
+   * Thumb-Index pinch calculation normalized by palm scale with hysteresis:
+   * Enter pinch when normalized distance < 0.38, exit pinch when > 0.48
    */
-  calculatePinchMetrics(lm, scale) {
+  calculatePinchMetrics(lm, scale, currentlyPinching = false) {
     const thumbTip = lm[LANDMARK_INDICES.THUMB_TIP];
     const indexTip = lm[LANDMARK_INDICES.INDEX_FINGER_TIP];
     
     const distance = dist2D(thumbTip, indexTip);
-    // Natural human pinch threshold: 0.15 scale is tight touch, 1.1 scale is maximum wide open
-    const minD = 0.12 * scale;
-    const maxD = 0.95 * scale;
-    
-    // Normalized 0.0 -> 1.0
-    const clamped = Math.max(0, Math.min(1, (distance - minD) / (maxD - minD)));
-    
-    // Smooth quadratic ease for silky continuous slider response
+    const normalizedRatio = distance / scale;
+
+    // Hysteresis thresholds to eliminate pinch flutter
+    const enterThreshold = 0.38;
+    const exitThreshold = 0.48;
+    const isPinching = currentlyPinching 
+      ? (normalizedRatio < exitThreshold)
+      : (normalizedRatio < enterThreshold);
+
+    // Continuous 0.0 -> 1.0 slider mapping with smooth ease curve
+    const minSpan = 0.10 * scale;
+    const maxSpan = 0.85 * scale;
+    const clamped = Math.max(0, Math.min(1, (distance - minSpan) / (maxSpan - minSpan)));
     const normalizedDistance = Math.round(clamped * 100) / 100;
 
     const center = {
@@ -237,15 +252,17 @@ export class GestureEngine {
 
     return {
       distance,
+      normalizedRatio,
       normalizedDistance,
       center,
-      isTightPinch: distance < 0.38 * scale,
-      isOpenSpan: distance > 0.70 * scale
+      isPinching,
+      isTightPinch: normalizedRatio < 0.32,
+      isOpenSpan: normalizedRatio > 0.65
     };
   }
 
   /**
-   * Detailed finger curl and extension state extraction
+   * Detailed finger curl and extension state extraction with angle & distance metrics
    */
   extractFingerStates(lm, wrist, palmCenter, scale) {
     const isCurled = (tip, pip, mcp) => {
@@ -255,7 +272,7 @@ export class GestureEngine {
       const palmDist = dist2D(lm[tip], palmCenter) / scale;
       const extRatio = dist2D(lm[tip], lm[mcp]) / scale;
       
-      return (dTip < dPip * 0.98) || (dTip < dMcp * 1.02) || (palmDist < 0.62) || (extRatio < 0.60);
+      return (dTip < dPip * 1.05) || (dTip < dMcp * 1.08) || (palmDist < 0.65) || (extRatio < 0.62);
     };
 
     const isExtended = (tip, pip, mcp) => {
@@ -295,10 +312,6 @@ export class GestureEngine {
       curledCount,
       extendedCount
     };
-  }
-
-  detectPinch(pinchData, fingerStates) {
-    return pinchData.isTightPinch && !fingerStates.thumb.pointingUp;
   }
 
   detectOpenPalm(fingerStates) {
@@ -356,30 +369,29 @@ export class GestureEngine {
   }
 
   calculateHandRotation(lm, wrist, palmCenter) {
-    // 2D In-plane roll angle (wrist to middle knuckle)
     const middleMcp = lm[LANDMARK_INDICES.MIDDLE_FINGER_MCP];
     const angleRad = Math.atan2(middleMcp.y - wrist.y, middleMcp.x - wrist.x);
-    const rollDegrees = (angleRad * 180 / Math.PI) + 90; // 0 = straight up
-
-    // 3D Pitch estimate based on z-depth delta
+    const rollDegrees = (angleRad * 180 / Math.PI) + 90;
     const pitch = (middleMcp.z - wrist.z) * 100;
 
-    return {
-      roll: rollDegrees,
-      pitch,
-      angleRad
-    };
+    return { roll: rollDegrees, pitch, angleRad };
   }
 
   /**
-   * Two-Hand Coordination Logic:
-   * Left hand handles selection/navigation, Right hand handles continuous intensity/drawing
+   * Two-Hand Coordination & Invisibility Cloak Gesture Trigger (Crossed wrists or Double Open Palms facing forward)
    */
   evaluateTwoHandInteraction(hands, timestamp) {
     if (hands.length < 2) return null;
 
     const leftHand = hands[0];
     const rightHand = hands[1];
+    const centerDist = dist2D(leftHand.palmCenter, rightHand.palmCenter);
+    const averageScale = (leftHand.scale + rightHand.scale) / 2;
+
+    // Invisibility Gesture Trigger: Both open palms pushing outward or crossed wrists close together
+    const bothOpenPalms = leftHand.gesture === GESTURE_TYPES.OPEN_PALM && rightHand.gesture === GESTURE_TYPES.OPEN_PALM;
+    const wristsCrossed = dist2D(leftHand.landmarks[0], rightHand.landmarks[0]) < 1.2 * averageScale;
+    const invisibilityTriggered = (bothOpenPalms && centerDist > 2.5 * averageScale) || wristsCrossed;
 
     return {
       active: true,
@@ -389,46 +401,50 @@ export class GestureEngine {
       rightPinch: rightHand.isPinching,
       controlIntensity: rightHand.normalizedPinchDistance,
       selectionGesture: leftHand.gesture,
-      handDistance: dist2D(leftHand.palmCenter, rightHand.palmCenter)
+      handDistance: centerDist,
+      invisibilityTriggered
     };
   }
 
   /**
-   * Gesture stabilization filter: Requires 2-3 consistent frames to avoid flutter
+   * Accidental Trigger Prevention: Gesture hold stabilization filter
    */
-  stabilizeGesture(trackId, newGesture, confidence, timestamp) {
-    if (!this.gestureHistory.has(trackId)) {
-      this.gestureHistory.set(trackId, []);
+  applyHoldStabilization(trackId, candidateGesture, timestamp) {
+    if (!this.gestureHoldTracker.has(trackId)) {
+      this.gestureHoldTracker.set(trackId, {
+        candidate: candidateGesture,
+        startTime: timestamp,
+        confirmed: candidateGesture
+      });
+      return candidateGesture;
     }
 
-    const history = this.gestureHistory.get(trackId);
-    history.push({ gesture: newGesture, timestamp });
+    const state = this.gestureHoldTracker.get(trackId);
 
-    // Keep last 6 frames
-    while (history.length > 6) {
-      history.shift();
+    // Fast-path interactive continuous gestures (pinch & point require zero lag)
+    if (candidateGesture === GESTURE_TYPES.PINCH || candidateGesture === GESTURE_TYPES.POINT) {
+      state.candidate = candidateGesture;
+      state.confirmed = candidateGesture;
+      state.startTime = timestamp;
+      return candidateGesture;
     }
 
-    // Fast-track point, pinch, thumbs_up for instant interactive feel
-    if (newGesture === GESTURE_TYPES.PINCH || newGesture === GESTURE_TYPES.POINT || newGesture === GESTURE_TYPES.THUMBS_UP) {
-      return newGesture;
+    // Dynamic swipe triggers immediately
+    if (candidateGesture.startsWith('swipe_')) {
+      return candidateGesture;
     }
 
-    // Majority voting over past frames
-    const counts = {};
-    for (const h of history) {
-      counts[h.gesture] = (counts[h.gesture] || 0) + 1;
-    }
-
-    let dominant = newGesture;
-    let maxCount = 0;
-    for (const [g, count] of Object.entries(counts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        dominant = g;
+    // Discrete action gestures (Peace, Fist, Open Palm, Thumbs Up) require consistent hold
+    if (candidateGesture === state.candidate) {
+      const elapsed = timestamp - state.startTime;
+      if (elapsed >= this.gestureHoldThresholdMs) {
+        state.confirmed = candidateGesture;
       }
+    } else {
+      state.candidate = candidateGesture;
+      state.startTime = timestamp;
     }
 
-    return dominant;
+    return state.confirmed;
   }
 }

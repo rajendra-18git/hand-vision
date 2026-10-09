@@ -1,10 +1,12 @@
 /**
  * Stage 5: Movement Calculation & One Euro Filter Smoothing
- * Filters noisy raw landmark outputs and computes velocities/direction vectors.
- *
- * Enhanced with adaptive dual-stage noise reduction for ultra-smooth hand drawing.
- * One Euro Filter Reference:
- * Casiez, G., Roussel, N. and Vogel, F. (2012). 1€ Filter: A Simple Speed-based Low-pass Filter.
+ * 
+ * Features:
+ * - Dual-stage One Euro Filter for zero-lag motion with ultra-low stationary jitter.
+ * - Outlier clamping to eliminate sudden 1-frame tracking noise spikes.
+ * - Velocity and acceleration calculation for drawing dynamics.
+ * 
+ * Reference: Casiez, G., Roussel, N. and Vogel, F. (2012). 1€ Filter: A Simple Speed-based Low-pass Filter.
  */
 
 class LowPassFilter {
@@ -34,7 +36,7 @@ class LowPassFilter {
 }
 
 export class OneEuroFilter1D {
-  constructor(minCutoff = 0.35, beta = 0.02, dCutoff = 1.0) {
+  constructor(minCutoff = 0.25, beta = 0.03, dCutoff = 1.0) {
     this.minCutoff = minCutoff; // Min cutoff frequency in Hz (lower = smoother when still)
     this.beta = beta;           // Speed coefficient (higher = responsive when moving)
     this.dCutoff = dCutoff;     // Derivative cutoff in Hz
@@ -78,7 +80,7 @@ export class OneEuroFilter1D {
 }
 
 export class OneEuroFilter3D {
-  constructor(minCutoff = 0.35, beta = 0.02, dCutoff = 1.0) {
+  constructor(minCutoff = 0.25, beta = 0.03, dCutoff = 1.0) {
     this.fx = new OneEuroFilter1D(minCutoff, beta, dCutoff);
     this.fy = new OneEuroFilter1D(minCutoff, beta, dCutoff);
     this.fz = new OneEuroFilter1D(minCutoff, beta, dCutoff);
@@ -104,7 +106,7 @@ export class OneEuroFilter3D {
  */
 export class HandMotionManager {
   constructor() {
-    // Map of trackId -> { landmarkFilters: Array<OneEuroFilter3D>, lastPoints: Array, ... }
+    // Map of trackId -> { landmarkFilters: Array<OneEuroFilter3D>, ... }
     this.handFilters = new Map();
   }
 
@@ -126,14 +128,18 @@ export class HandMotionManager {
         for (let i = 0; i < 21; i++) {
           // Landmark 8 (Index tip) tuned for ultra-smooth jitter-free drawing
           if (i === 8) {
-            filters.push(new OneEuroFilter3D(0.25, 0.025, 1.5));
-          } else if (i === 4 || i === 7 || i === 6) {
-            // Thumb tip & index joints
-            filters.push(new OneEuroFilter3D(0.35, 0.020, 1.2));
+            filters.push(new OneEuroFilter3D(0.20, 0.035, 1.5));
+          } else if (i === 4 || i === 12) {
+            // Thumb tip & middle tip
+            filters.push(new OneEuroFilter3D(0.25, 0.030, 1.2));
+          } else if (i === 0) {
+            // Wrist
+            filters.push(new OneEuroFilter3D(0.30, 0.025, 1.0));
           } else {
-            filters.push(new OneEuroFilter3D(0.60, 0.015, 1.0));
+            filters.push(new OneEuroFilter3D(0.45, 0.020, 1.0));
           }
         }
+
         this.handFilters.set(hand.trackId, {
           filters,
           prevIndexTip: null,
@@ -155,13 +161,15 @@ export class HandMotionManager {
           z: filtered.z,
           rawX: lm.x,
           rawY: lm.y,
-          rawZ: lm.z
+          rawZ: lm.z,
+          confidence: lm.confidence
         };
       });
 
       // Calculate velocity and motion dynamics for Index Tip (Pen) and Wrist
       const indexTip = smoothedLandmarks[8];
       const thumbTip = smoothedLandmarks[4];
+      const middleTip = smoothedLandmarks[12];
       const wrist = smoothedLandmarks[0];
 
       let dt = 0.016; // default fallback ~60fps
@@ -175,7 +183,7 @@ export class HandMotionManager {
         const rawVy = (indexTip.y - state.prevIndexTip.y) / dt;
         
         // Low-pass smooth the velocity vector to avoid jerkiness
-        const vAlpha = 0.35;
+        const vAlpha = 0.40;
         const sv = state.smoothedVelocity;
         sv.x = sv.x * (1 - vAlpha) + rawVx * vAlpha;
         sv.y = sv.y * (1 - vAlpha) + rawVy * vAlpha;
@@ -201,6 +209,7 @@ export class HandMotionManager {
         landmarks: smoothedLandmarks,
         indexTip,
         thumbTip,
+        middleTip,
         wrist,
         pinchCenter,
         pinchDistance,

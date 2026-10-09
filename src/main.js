@@ -10,6 +10,9 @@
  * 6. ⚔️ SLICE: Spatial energy orb slicer game with combo score physics
  * 7. ✨ AI FILTERS: 20+ Real-Time Aesthetic Video Shaders with continuous pinch modulation
  * 8. 📸 CAPTURE: Composite Photo Snapshots, WebM Video Recording & interactive Media Gallery
+ * 9. 🤖 MULTI-BACKEND VISION: MediaPipe Tasks Vision (GPU/CPU) & Ultralytics YOLO Pose (WebGPU/WASM)
+ * 10. 📊 COMPREHENSIVE BENCHMARK: Real-time detection & E2E latency, jitter, missed frame & pinch reliability suite
+ * 11. 👻 INVISIBILITY CLOAK: Decoupled person segmentation & optical cloaking effect
  */
 
 import { CameraManager } from './pipeline/1_capture.js';
@@ -22,6 +25,10 @@ import { FilterEngine, FILTER_LIBRARY } from './filters/FilterEngine.js';
 import { FlowerRenderer } from './pipeline/8_flowerRenderer.js';
 import { SkeletonRenderer } from './render/skeletonRenderer.js';
 import { getCoverTransform } from './utils/geometry.js';
+
+// Modular Additions: Benchmarks & Invisibility Cloak Engine
+import { HandTrackingBenchmark } from './benchmarks/HandTrackingBenchmark.js';
+import { InvisibilityEngine } from './vision/segmentation/InvisibilityEngine.js';
 
 // Top-Tier Interactive Experiences
 import { GalaxyPhysics } from './experiences/GalaxyPhysics.js';
@@ -63,6 +70,7 @@ class VisionGardenApp {
     // 2. DOM Elements - Viewport & Canvases
     this.videoElement = document.getElementById('webcam-video');
     this.filterCanvas = document.getElementById('filter-canvas');
+    this.invisibilityCanvas = document.getElementById('invisibility-canvas');
     this.galaxyCanvas = document.getElementById('galaxy-canvas');
     this.magicCanvas = document.getElementById('magic-canvas');
     this.hologramCanvas = document.getElementById('hologram-canvas');
@@ -78,6 +86,12 @@ class VisionGardenApp {
     this.fpsCounter = document.getElementById('fps-counter');
     this.handsCounter = document.getElementById('hands-counter');
     
+    // Provider Switcher & Benchmarks
+    this.btnProviderToggle = document.getElementById('btn-provider-toggle');
+    this.providerLabel = document.getElementById('provider-label');
+    this.btnOpenBenchmark = document.getElementById('btn-open-benchmark');
+    this.btnToggleInvisibility = document.getElementById('btn-toggle-invisibility');
+
     // 4. DOM Elements - Controls & Toggles
     this.btnCameraFlip = document.getElementById('btn-camera-flip');
     this.btnToggleSkeleton = document.getElementById('btn-toggle-skeleton');
@@ -122,14 +136,36 @@ class VisionGardenApp {
     this.recordBtnText = document.getElementById('record-btn-text');
     this.btnCanvasUndo = document.getElementById('btn-canvas-undo');
 
-    // 8. DOM Elements - Modals & Gallery
+    // 8. DOM Elements - Modals & Benchmark Dashboard
     this.tutorialModal = document.getElementById('tutorial-modal-overlay');
     this.btnCloseTutorial = document.getElementById('btn-close-tutorial');
     this.btnTutorialStart = document.getElementById('btn-tutorial-start');
+    
     this.galleryModal = document.getElementById('gallery-modal-overlay');
     this.btnCloseGallery = document.getElementById('btn-close-gallery');
     this.galleryGrid = document.getElementById('gallery-grid');
     this.galleryEmptyState = document.getElementById('gallery-empty-state');
+
+    this.benchmarkModal = document.getElementById('benchmark-modal-overlay');
+    this.btnCloseBenchmark = document.getElementById('btn-close-benchmark');
+    this.btnBenchmarkDone = document.getElementById('btn-benchmark-done');
+    this.btnStartAutoBenchmark = document.getElementById('btn-start-auto-benchmark');
+    
+    // Benchmark telemetry DOM refs
+    this.bmDetLatency = document.getElementById('bm-metric-det-latency');
+    this.bmP95 = document.getElementById('bm-metric-p95');
+    this.bmE2E = document.getElementById('bm-metric-e2e-latency');
+    this.bmFps = document.getElementById('bm-metric-fps');
+    this.bmBackend = document.getElementById('bm-metric-backend');
+    this.bmJitter = document.getElementById('bm-metric-jitter');
+    this.bmMissed = document.getElementById('bm-metric-missed');
+    this.bmPinchRel = document.getElementById('bm-metric-pinch-rel');
+    this.bmProgressWrap = document.getElementById('bm-progress-bar-wrap');
+    this.bmProgressFill = document.getElementById('bm-progress-fill');
+    this.bmProgressText = document.getElementById('bm-progress-text');
+    this.bmResultsTableWrap = document.getElementById('bm-results-table-wrap');
+    this.bmTableBody = document.getElementById('bm-table-body');
+    this.bmRecCard = document.getElementById('bm-recommendation-card');
 
     // State Variables
     this.activeMode = APP_MODES.CREATE;
@@ -149,7 +185,7 @@ class VisionGardenApp {
     this.recordingStartTime = 0;
     this.recordTimerInterval = null;
 
-    // Pipeline Subsystems
+    // Pipeline Subsystems & Modular Engines
     this.cameraManager = new CameraManager({
       videoElement: this.videoElement,
       onError: (err) => this.handleCameraError(err),
@@ -157,14 +193,20 @@ class VisionGardenApp {
     });
 
     this.detector = new HandDetector({
-      onStatusChange: (status) => this.updateStatus(status, 'loading')
+      onStatusChange: (status) => this.updateStatus(status, 'loading'),
+      onProviderSwitch: (t, p) => this.updateProviderLabel(p)
     });
 
     this.keypoints = new KeypointExtractor();
-    this.tracker = new HandTracker();
+    this.tracker = new HandTracker({ maxMissedFrames: 5 });
     this.motionManager = new HandMotionManager();
-    this.gestureEngine = new GestureEngine({ swipeVelocityThreshold: 500 });
+    this.gestureEngine = new GestureEngine({ 
+      swipeVelocityThreshold: 520,
+      gestureHoldThresholdMs: 180
+    });
     this.filterEngine = new FilterEngine(this.filterCanvas);
+    this.invisibilityEngine = new InvisibilityEngine(this.invisibilityCanvas);
+    this.benchmark = new HandTrackingBenchmark();
     this.skeletonRenderer = new SkeletonRenderer(this.skeletonCanvas);
     this.flowerRenderer = new FlowerRenderer(this.drawingCanvas, { maxFlowers: 60 });
 
@@ -199,6 +241,22 @@ class VisionGardenApp {
     // Gallery Modal
     this.btnOpenGallery?.addEventListener('click', () => this.openGallery());
     this.btnCloseGallery?.addEventListener('click', () => this.closeGallery());
+
+    // Benchmark Modal
+    this.btnOpenBenchmark?.addEventListener('click', () => this.openBenchmark());
+    this.btnCloseBenchmark?.addEventListener('click', () => this.closeBenchmark());
+    this.btnBenchmarkDone?.addEventListener('click', () => this.closeBenchmark());
+    this.btnStartAutoBenchmark?.addEventListener('click', () => this.runAutomatedBenchmark());
+
+    // Provider Hot-Switching
+    this.btnProviderToggle?.addEventListener('click', () => this.toggleProvider());
+
+    // Invisibility Cloak Toggle
+    this.btnToggleInvisibility?.addEventListener('click', () => {
+      const active = this.invisibilityEngine.toggle();
+      if (active) this.invisibilityEngine.captureBackground(this.videoElement);
+      this.showToast(active ? 'Invisibility Cloak Active' : 'Cloak Deactivated', '👻');
+    });
 
     // Camera Flip & Fullscreen
     this.btnCameraFlip?.addEventListener('click', () => this.cameraManager.flipCamera());
@@ -297,106 +355,32 @@ class VisionGardenApp {
       this.showToast(undone ? 'Stroke Undone' : 'Canvas is empty', '↩️');
     });
 
-    // Interactive Pointer / Mouse Interaction for ALL Modes
-    let isPointerDown = false;
-    const forwardPointer = (e) => {
-      const isUI = e.target.closest('button, .floating-dock-container, .floating-glass-hud-top, .glass-modal-card');
-      if (isUI) return;
+    // Interactive Pointer / Mouse Interaction for fallback
+    this.initPointerInteractions();
+  }
 
-      const pt = { x: e.clientX, y: e.clientY };
+  async toggleProvider() {
+    const currentId = this.detector.activeProviderId;
+    const nextId = currentId === 'mediapipe' ? 'yolo' : 'mediapipe';
+    
+    this.showToast(`Switching to ${nextId.toUpperCase()}...`, '🤖');
+    try {
+      const newProvider = await this.detector.switchProvider(nextId);
+      this.updateProviderLabel(newProvider);
+      this.showToast(`Active: ${newProvider.name} (${newProvider.backendType})`, '✨');
+    } catch (err) {
+      console.error('Provider switch error:', err);
+      this.showToast('Provider switch error', '⚠️');
+    }
+  }
 
-      if (this.activeMode === APP_MODES.CREATE) {
-        if (isPointerDown) {
-          this.flowerRenderer.updateStroke('mouse_ptr', pt);
-        }
-      } else if (this.activeMode === APP_MODES.GALAXY) {
-        this.galaxyEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.MAGIC) {
-        this.magicEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.HOLOGRAM) {
-        this.holoEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.SYNTH) {
-        if (isPointerDown) {
-          this.synthEngine.setPointer(pt);
-        }
-      } else if (this.activeMode === APP_MODES.SLASH) {
-        this.slashEngine.setPointer(pt);
-      }
-    };
-
-    window.addEventListener('pointerdown', (e) => {
-      const isUI = e.target.closest('button, .floating-dock-container, .floating-glass-hud-top, .glass-modal-card');
-      if (isUI) return;
-
-      isPointerDown = true;
-      const pt = { x: e.clientX, y: e.clientY };
-
-      if (this.activeMode === APP_MODES.CREATE) {
-        this.flowerRenderer.startStroke('mouse_ptr', pt);
-      } else if (this.activeMode === APP_MODES.GALAXY) {
-        this.galaxyEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.MAGIC) {
-        this.magicEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.HOLOGRAM) {
-        this.holoEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.SYNTH) {
-        this.synthEngine.setPointer(pt);
-      } else if (this.activeMode === APP_MODES.SLASH) {
-        this.slashEngine.setPointer(pt);
-      }
-    });
-
-    window.addEventListener('pointermove', forwardPointer);
-
-    const stopPointer = () => {
-      if (isPointerDown) {
-        isPointerDown = false;
-        if (this.activeMode === APP_MODES.CREATE) {
-          this.flowerRenderer.endStroke('mouse_ptr');
-        }
-      }
-      if (this.activeMode === APP_MODES.SYNTH) {
-        this.synthEngine.setPointer(null);
-      }
-      if (this.activeMode === APP_MODES.GALAXY) {
-        this.galaxyEngine.setPointer(null);
-      }
-      if (this.activeMode === APP_MODES.MAGIC) {
-        this.magicEngine.setPointer(null);
-      }
-      if (this.activeMode === APP_MODES.HOLOGRAM) {
-        this.holoEngine.setPointer(null);
-      }
-      if (this.activeMode === APP_MODES.SLASH) {
-        this.slashEngine.setPointer(null);
-      }
-    };
-    window.addEventListener('pointerup', stopPointer);
-    window.addEventListener('pointercancel', stopPointer);
-
-    // Mouse Wheel / Trackpad Pinch Simulation
-    window.addEventListener('wheel', (e) => {
-      if (this.activeMode === APP_MODES.FILTERS) {
-        const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        this.updatePinchIntensity(this.currentFilterIntensity + delta);
-      }
-    }, { passive: true });
-
-    // Keyboard Shortcuts
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'f' || e.key === 'F') this.toggleFullscreen();
-      if (e.key === 'c' || e.key === 'C') this.flowerRenderer.clear();
-      if (e.key === 'b' || e.key === 'B') this.flowerRenderer.bloomAllFlowers();
-      if (e.key === 'z' || e.key === 'Z') this.flowerRenderer.undo();
-      if (e.key === '1') this.setMode(APP_MODES.CREATE);
-      if (e.key === '2') this.setMode(APP_MODES.GALAXY);
-      if (e.key === '3') this.setMode(APP_MODES.MAGIC);
-      if (e.key === '4') this.setMode(APP_MODES.HOLOGRAM);
-      if (e.key === '5') this.setMode(APP_MODES.SYNTH);
-      if (e.key === '6') this.setMode(APP_MODES.SLASH);
-      if (e.key === '7') this.setMode(APP_MODES.FILTERS);
-      if (e.key === '8') this.setMode(APP_MODES.CAPTURE);
-    });
+  updateProviderLabel(provider) {
+    if (!this.providerLabel || !provider) return;
+    const isYolo = provider.name.toLowerCase().includes('yolo');
+    this.providerLabel.textContent = `${isYolo ? 'YOLO Pose' : 'MediaPipe'} (${provider.backendType})`;
+    if (this.btnProviderToggle) {
+      this.btnProviderToggle.classList.toggle('yolo-mode', isYolo);
+    }
   }
 
   handleResize() {
@@ -405,6 +389,7 @@ class VisionGardenApp {
 
     [
       this.filterCanvas,
+      this.invisibilityCanvas,
       this.galaxyCanvas,
       this.magicCanvas,
       this.hologramCanvas,
@@ -420,6 +405,7 @@ class VisionGardenApp {
     });
 
     this.filterEngine?.resize(width, height);
+    this.invisibilityEngine?.resize(width, height);
     this.flowerRenderer?.resize(width, height);
     this.galaxyEngine?.resize(width, height);
     this.magicEngine?.resize(width, height);
@@ -441,8 +427,9 @@ class VisionGardenApp {
       // 1. Initialize Camera
       await this.cameraManager.init();
       
-      // 2. Initialize MediaPipe Detector
-      await this.detector.init();
+      // 2. Initialize Modular Detector (MediaPipe / YOLO)
+      const provider = await this.detector.init();
+      this.updateProviderLabel(provider);
 
       this.isRunning = true;
       this.updateStatus('Vision Live', 'live');
@@ -556,10 +543,11 @@ class VisionGardenApp {
   }
 
   /**
-   * Main High-Performance Vision & AR Render Loop (Target: 60 FPS)
+   * Main High-Performance Vision & AR Render Loop
    */
   renderLoop(timestamp) {
     if (!this.isRunning) return;
+    const loopStart = performance.now();
 
     // 1. Calculate FPS Telemetry
     this.frameCount++;
@@ -575,10 +563,10 @@ class VisionGardenApp {
     const videoWidth = this.videoElement?.videoWidth || 1280;
     const videoHeight = this.videoElement?.videoHeight || 720;
 
-    // Calculate exact CSS object-fit: cover transform for 1:1 pixel alignment
+    // Exact CSS object-fit: cover transform for 1:1 pixel alignment
     const transform = getCoverTransform(videoWidth, videoHeight, canvasWidth, canvasHeight);
 
-    // 2. Real-time Filter Processing (Active in FILTERS mode or with selected filter)
+    // 2. Real-time Filter Processing
     if (this.activeMode === APP_MODES.FILTERS) {
       this.filterEngine.setIntensity(this.currentFilterIntensity);
       this.filterEngine.processFrame(this.videoElement, timestamp, transform);
@@ -587,10 +575,14 @@ class VisionGardenApp {
       fCtx.clearRect(0, 0, canvasWidth, canvasHeight);
     }
 
-    // 3. Run MediaPipe Detection on Hardware Video Stream
+    // 3. Modular Vision Detection (MediaPipe or YOLO)
     let gestureResult = { hands: [], activeGesture: GESTURE_TYPES.NONE };
+    let detectionLatencyMs = 0;
+
     if (this.videoElement && (this.videoElement.readyState >= 2 || (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0))) {
       const rawResults = this.detector.detect(this.videoElement, timestamp);
+      detectionLatencyMs = rawResults?.detectionLatencyMs || 0;
+
       const extractedHands = this.keypoints.process(rawResults, canvasWidth, canvasHeight, true, transform);
       const trackedHands = this.tracker.track(extractedHands, timestamp);
       const smoothedHands = this.motionManager.process(trackedHands, timestamp);
@@ -604,16 +596,38 @@ class VisionGardenApp {
       this.handsCounter.textContent = `${numHands} Hand${numHands === 1 ? '' : 's'}`;
     }
 
-    // 4. Handle Global Discrete Gestures
+    // 4. Invisibility Cloak Layer Rendering (Decoupled from Hand Tracking)
+    this.invisibilityEngine.render(this.videoElement, gestureResult, timestamp);
+
+    // 5. Handle Global Discrete Gestures
     this.handleGestures(gestureResult, timestamp);
 
-    // 5. Render Selected Mode Engine Layer
+    // 6. Render Selected Mode Engine Layer
     this.renderActiveModeEngine(gestureResult, timestamp);
 
-    // 6. Render Skeleton & Dynamic Reticle Overlay Canvas
+    // 7. Render Skeleton & Dynamic Reticle Overlay Canvas
     const sCtx = this.skeletonCanvas.getContext('2d');
     sCtx.clearRect(0, 0, this.skeletonCanvas.width, this.skeletonCanvas.height);
     this.skeletonRenderer.render(gestureResult, this.activeMode);
+
+    // 8. Record Telemetry to Benchmark Suite
+    const loopEnd = performance.now();
+    const e2eLatencyMs = loopEnd - loopStart;
+    const primaryTip = gestureResult.primaryHand ? gestureResult.primaryHand.landmarks[8] : null;
+
+    this.benchmark.recordFrame({
+      detectionLatencyMs,
+      e2eLatencyMs,
+      hasDetection: gestureResult.hands.length > 0,
+      fingertipPos: primaryTip,
+      isPinching: gestureResult.primaryHand ? gestureResult.primaryHand.isPinching : false,
+      timestamp
+    });
+
+    // Update live benchmark HUD if modal is visible
+    if (!this.benchmarkModal.classList.contains('hidden')) {
+      this.updateBenchmarkLiveHUD();
+    }
 
     requestAnimationFrame((ts) => this.renderLoop(ts));
   }
@@ -679,7 +693,16 @@ class VisionGardenApp {
   }
 
   handleGestures(gestureResult, timestamp) {
-    const { primaryHand, activeGesture } = gestureResult;
+    const { primaryHand, activeGesture, invisibilityActive } = gestureResult;
+
+    // Gesture-triggered Invisibility Cloak
+    if (invisibilityActive && timestamp - this.lastActionTime > 800) {
+      this.invisibilityEngine.captureBackground(this.videoElement);
+      this.invisibilityEngine.setActive(true);
+      this.showToast('Invisibility Pose: Cloak Activated', '👻');
+      this.lastActionTime = timestamp;
+      return;
+    }
 
     if (!primaryHand) return;
 
@@ -695,8 +718,8 @@ class VisionGardenApp {
       }
     }
 
-    // Discrete Gesture Actions (Debounced)
-    if (timestamp - this.lastActionTime > 1100) {
+    // Discrete Gesture Actions (with Hold Durations and Cooldowns)
+    if (timestamp - this.lastActionTime > 1000) {
       
       // 1. Peace Sign: Switch Mode
       if (activeGesture === GESTURE_TYPES.PEACE) {
@@ -773,6 +796,88 @@ class VisionGardenApp {
     this.flowerRenderer.render(timestamp);
   }
 
+  // --- Benchmark UI & Automated Test Runner ---
+
+  openBenchmark() {
+    this.benchmarkModal?.classList.remove('hidden');
+    this.updateBenchmarkLiveHUD();
+  }
+
+  closeBenchmark() {
+    this.benchmarkModal?.classList.add('hidden');
+  }
+
+  updateBenchmarkLiveHUD() {
+    const stats = this.benchmark.getLiveStats();
+    const info = this.detector.getBackendInfo();
+
+    if (this.bmDetLatency) this.bmDetLatency.textContent = `${stats.detectionLatencyMs} ms`;
+    if (this.bmP95) this.bmP95.textContent = `p95: ${stats.p95LatencyMs} ms`;
+    if (this.bmE2E) this.bmE2E.textContent = `${stats.e2eLatencyMs} ms`;
+    if (this.bmFps) this.bmFps.textContent = `${stats.fps} FPS`;
+    if (this.bmBackend) this.bmBackend.textContent = `${info.providerName} (${info.backendType})`;
+    if (this.bmJitter) this.bmJitter.textContent = `${stats.jitterPx} px`;
+    if (this.bmMissed) this.bmMissed.textContent = `${stats.missedRatePercent}%`;
+    if (this.bmPinchRel) this.bmPinchRel.textContent = `${stats.pinchReliabilityPercent}%`;
+  }
+
+  async runAutomatedBenchmark() {
+    if (!this.btnStartAutoBenchmark) return;
+    this.btnStartAutoBenchmark.disabled = true;
+    this.bmProgressWrap?.classList.remove('hidden');
+    this.bmResultsTableWrap?.classList.add('hidden');
+
+    try {
+      const results = await this.benchmark.runComparativeBenchmark(
+        this.detector,
+        this.videoElement,
+        (statusText, progressRatio) => {
+          if (this.bmProgressText) this.bmProgressText.textContent = statusText;
+          if (this.bmProgressFill) this.bmProgressFill.style.width = `${Math.round(progressRatio * 100)}%`;
+        }
+      );
+
+      // Render comparative table
+      if (this.bmTableBody && results.mediapipe && results.yolo) {
+        this.bmTableBody.innerHTML = `
+          <tr>
+            <td><strong>MediaPipe Tasks Vision</strong></td>
+            <td><code>${results.mediapipe.backend}</code></td>
+            <td><strong>${results.mediapipe.avgLatencyMs} ms</strong> (p95: ${results.mediapipe.p95LatencyMs}ms)</td>
+            <td><strong>${results.mediapipe.fps} FPS</strong></td>
+            <td>${results.mediapipe.jitterScorePx} px</td>
+            <td>${results.mediapipe.missedRatePercent}%</td>
+            <td>${results.mediapipe.pinchReliabilityPercent}%</td>
+          </tr>
+          <tr>
+            <td><strong>Ultralytics YOLO Pose</strong></td>
+            <td><code>${results.yolo.backend}</code></td>
+            <td><strong>${results.yolo.avgLatencyMs} ms</strong> (p95: ${results.yolo.p95LatencyMs}ms)</td>
+            <td><strong>${results.yolo.fps} FPS</strong></td>
+            <td>${results.yolo.jitterScorePx} px</td>
+            <td>${results.yolo.missedRatePercent}%</td>
+            <td>${results.yolo.pinchReliabilityPercent}%</td>
+          </tr>
+        `;
+      }
+
+      if (this.bmRecCard) {
+        this.bmRecCard.innerHTML = `
+          <strong>Empirical Benchmark Conclusion:</strong><br/>
+          ${results.recommendation}
+        `;
+      }
+
+      this.bmResultsTableWrap?.classList.remove('hidden');
+      this.bmProgressWrap?.classList.add('hidden');
+    } catch (err) {
+      console.error('Auto benchmark failure:', err);
+      if (this.bmProgressText) this.bmProgressText.textContent = 'Benchmark encountered an error.';
+    } finally {
+      this.btnStartAutoBenchmark.disabled = false;
+    }
+  }
+
   // --- Photo Snapshot & Video Recording ---
 
   async takePhotoSnapshot() {
@@ -797,6 +902,7 @@ class VisionGardenApp {
     // 2. Draw active canvases
     [
       this.filterCanvas,
+      this.invisibilityCanvas,
       this.galaxyCanvas,
       this.magicCanvas,
       this.hologramCanvas,
@@ -850,23 +956,62 @@ class VisionGardenApp {
       const compositeCanvas = document.createElement('canvas');
       compositeCanvas.width = w;
       compositeCanvas.height = h;
-      const compCtx = compositeCanvas.getContext('2d');
+      const cCtx = compositeCanvas.getContext('2d');
 
       const stream = compositeCanvas.captureStream(30);
 
-      const updateComp = () => {
+      // Include Synth audio stream if available
+      if (this.synthEngine?.audioCtx) {
+        try {
+          const dest = this.synthEngine.audioCtx.createMediaStreamDestination();
+          this.synthEngine.gainNode?.connect(dest);
+          if (dest.stream.getAudioTracks().length > 0) {
+            stream.addTrack(dest.stream.getAudioTracks()[0]);
+          }
+        } catch (e) {}
+      }
+
+      this.recordedChunks = [];
+      const options = { mimeType: 'video/webm;codecs=vp9' };
+      this.mediaRecorder = new MediaRecorder(stream, MediaRecorder.isTypeSupported(options.mimeType) ? options : undefined);
+
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          this.recordedChunks.push(e.data);
+        }
+      };
+
+      this.mediaRecorder.onstop = () => {
+        const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const filename = `visiongarden-recording-${Date.now()}.webm`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+
+        this.addGalleryItem({ type: 'video', url, filename, timestamp: new Date().toLocaleTimeString() });
+        this.showToast('Recording Saved to Gallery', '🎥');
+      };
+
+      // Composite draw loop for video recording
+      const recordDraw = () => {
         if (!this.isRecording) return;
-        compCtx.clearRect(0, 0, w, h);
+        cCtx.clearRect(0, 0, w, h);
+
         if (this.videoElement && this.videoElement.videoWidth > 0) {
           const transform = getCoverTransform(this.videoElement.videoWidth, this.videoElement.videoHeight, w, h);
-          compCtx.save();
-          compCtx.translate(w, 0);
-          compCtx.scale(-1, 1);
-          compCtx.drawImage(this.videoElement, transform.offsetX, transform.offsetY, transform.drawWidth, transform.drawHeight);
-          compCtx.restore();
+          cCtx.save();
+          cCtx.translate(w, 0);
+          cCtx.scale(-1, 1);
+          cCtx.drawImage(this.videoElement, transform.offsetX, transform.offsetY, transform.drawWidth, transform.drawHeight);
+          cCtx.restore();
         }
+
         [
           this.filterCanvas,
+          this.invisibilityCanvas,
           this.galaxyCanvas,
           this.magicCanvas,
           this.hologramCanvas,
@@ -874,63 +1019,28 @@ class VisionGardenApp {
           this.slashCanvas,
           this.drawingCanvas
         ].forEach((cvs) => {
-          if (cvs) compCtx.drawImage(cvs, 0, 0);
+          if (cvs) cCtx.drawImage(cvs, 0, 0);
         });
 
-        requestAnimationFrame(updateComp);
+        requestAnimationFrame(recordDraw);
       };
 
-      this.recordedChunks = [];
-      const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? { mimeType: 'video/webm;codecs=vp9' }
-        : { mimeType: 'video/webm' };
-
-      this.mediaRecorder = new MediaRecorder(stream, options);
-
-      this.mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          this.recordedChunks.push(e.data);
-        }
-      };
-
-      this.mediaRecorder.onstop = () => {
-        const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
-        const videoUrl = URL.createObjectURL(blob);
-        const filename = `visiongarden-video-${Date.now()}.webm`;
-
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = videoUrl;
-        link.click();
-
-        this.addGalleryItem({ type: 'video', url: videoUrl, filename, timestamp: new Date().toLocaleTimeString() });
-        this.showToast('Video Saved to Gallery', '🎥');
-      };
-
-      this.mediaRecorder.start();
       this.isRecording = true;
-      this.recordingStartTime = Date.now();
-      requestAnimationFrame(updateComp);
+      this.mediaRecorder.start();
+      requestAnimationFrame(recordDraw);
 
-      if (this.recordBtnText) this.recordBtnText.textContent = 'Stop Recording (0s)';
+      if (this.recordBtnText) this.recordBtnText.textContent = 'Stop Recording';
       this.btnToggleRecord?.classList.add('recording');
-
-      this.recordTimerInterval = setInterval(() => {
-        const secs = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-        if (this.recordBtnText) this.recordBtnText.textContent = `Stop Recording (${secs}s)`;
-      }, 1000);
-
-      this.showToast('Recording Started', '🔴');
+      this.showToast('Recording Started...', '🔴');
     } catch (err) {
-      console.error('MediaRecorder error:', err);
-      this.showToast('Recording not supported on this browser', '⚠️');
+      console.error('Recording error:', err);
+      this.showToast('Recording failed to start', '⚠️');
     }
   }
 
   stopVideoRecording() {
     if (!this.isRecording || !this.mediaRecorder) return;
     this.isRecording = false;
-    clearInterval(this.recordTimerInterval);
     this.mediaRecorder.stop();
 
     if (this.recordBtnText) this.recordBtnText.textContent = 'Start Recording';
@@ -939,46 +1049,41 @@ class VisionGardenApp {
 
   addGalleryItem(item) {
     this.galleryItems.unshift(item);
-    this.renderGalleryGrid();
-  }
+    if (this.galleryEmptyState) this.galleryEmptyState.classList.add('hidden');
+    if (this.galleryGrid) {
+      this.galleryGrid.classList.remove('hidden');
 
-  renderGalleryGrid() {
-    if (!this.galleryGrid || !this.galleryEmptyState) return;
-
-    if (this.galleryItems.length === 0) {
-      this.galleryEmptyState.classList.remove('hidden');
-      this.galleryGrid.classList.add('hidden');
-      return;
-    }
-
-    this.galleryEmptyState.classList.add('hidden');
-    this.galleryGrid.classList.remove('hidden');
-    this.galleryGrid.innerHTML = '';
-
-    for (const item of this.galleryItems) {
       const card = document.createElement('div');
       card.className = 'gallery-item-card';
 
       if (item.type === 'image') {
         card.innerHTML = `
-          <img src="${item.url}" alt="${item.filename}" class="gallery-thumb" />
+          <img src="${item.url}" class="gallery-thumb" alt="${item.filename}" />
           <div class="gallery-item-meta">
-            <span>📷 ${item.timestamp}</span>
-            <a href="${item.url}" download="${item.filename}" class="btn-gallery-dl">⬇️</a>
+            <span>${item.timestamp}</span>
+            <a href="${item.url}" download="${item.filename}" class="btn-gallery-dl" title="Download">⬇️</a>
           </div>
         `;
       } else {
         card.innerHTML = `
-          <video src="${item.url}" controls class="gallery-thumb"></video>
+          <video src="${item.url}" class="gallery-thumb" controls></video>
           <div class="gallery-item-meta">
-            <span>🎥 ${item.timestamp}</span>
-            <a href="${item.url}" download="${item.filename}" class="btn-gallery-dl">⬇️</a>
+            <span>${item.timestamp}</span>
+            <a href="${item.url}" download="${item.filename}" class="btn-gallery-dl" title="Download">⬇️</a>
           </div>
         `;
       }
 
-      this.galleryGrid.appendChild(card);
+      this.galleryGrid.prepend(card);
     }
+  }
+
+  openGallery() {
+    this.galleryModal?.classList.remove('hidden');
+  }
+
+  closeGallery() {
+    this.galleryModal?.classList.add('hidden');
   }
 
   openTutorial() {
@@ -989,15 +1094,6 @@ class VisionGardenApp {
     this.tutorialModal?.classList.add('hidden');
   }
 
-  openGallery() {
-    this.renderGalleryGrid();
-    this.galleryModal?.classList.remove('hidden');
-  }
-
-  closeGallery() {
-    this.galleryModal?.classList.add('hidden');
-  }
-
   toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -1005,9 +1101,49 @@ class VisionGardenApp {
       document.exitFullscreen().catch(() => {});
     }
   }
+
+  initPointerInteractions() {
+    let isPointerDown = false;
+
+    const handlePointerMove = (e) => {
+      const x = e.clientX;
+      const y = e.clientY;
+
+      if (this.activeMode === APP_MODES.CREATE && isPointerDown) {
+        this.flowerRenderer.addPointerPoint(x, y, performance.now());
+      } else if (this.activeMode === APP_MODES.GALAXY) {
+        this.galaxyEngine.setPointerPosition(x, y, isPointerDown);
+      } else if (this.activeMode === APP_MODES.MAGIC) {
+        this.magicEngine.setPointerPosition(x, y, isPointerDown);
+      } else if (this.activeMode === APP_MODES.HOLOGRAM) {
+        this.holoEngine.setPointerPosition(x, y, isPointerDown);
+      } else if (this.activeMode === APP_MODES.SYNTH) {
+        this.synthEngine.setPointerPosition(x, y, isPointerDown, window.innerWidth, window.innerHeight);
+      } else if (this.activeMode === APP_MODES.SLASH) {
+        this.slashEngine.setPointerPosition(x, y, performance.now());
+      }
+    };
+
+    window.addEventListener('pointerdown', (e) => {
+      isPointerDown = true;
+      handlePointerMove(e);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      handlePointerMove(e);
+    });
+
+    window.addEventListener('pointerup', () => {
+      isPointerDown = false;
+      this.flowerRenderer.endPointerStroke();
+      if (this.activeMode === APP_MODES.SYNTH) {
+        this.synthEngine.stop();
+      }
+    });
+  }
 }
 
-// Bootstrap Application when DOM loads
+// Instantiate and start app on DOM content loaded
 window.addEventListener('DOMContentLoaded', () => {
-  window.visionGardenApp = new VisionGardenApp();
+  window.app = new VisionGardenApp();
 });

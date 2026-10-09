@@ -1,7 +1,7 @@
 /**
  * Stage 3: Keypoint Extraction & Coordinate Transforms
- * Normalizes MediaPipe raw landmark coordinates to canvas pixel space,
- * handling mirroring and aspect-ratio scaling for seamless visual alignment.
+ * Normalizes raw landmark coordinates to canvas pixel space,
+ * handling mirroring and aspect-ratio cover scaling for seamless visual alignment.
  */
 
 export const LANDMARK_INDICES = {
@@ -68,8 +68,9 @@ export class KeypointExtractor {
 
     for (let h = 0; h < numDetected; h++) {
       const rawLandmarks = detectionResults.landmarks[h];
-      const handednessData = handednessArray[h] && handednessArray[h][0] ? handednessArray[h][0] : null;
+      if (!rawLandmarks || rawLandmarks.length < 21) continue;
 
+      const handednessData = handednessArray[h] && handednessArray[h][0] ? handednessArray[h][0] : null;
       const rawCategory = handednessData ? (handednessData.categoryName || handednessData.displayName || 'Unknown') : 'Unknown';
       const confidence = handednessData ? (handednessData.score || 0.9) : 0.9;
 
@@ -86,6 +87,7 @@ export class KeypointExtractor {
         const pixelX = offsetX + normX * drawWidth;
         const pixelY = offsetY + lm.y * drawHeight;
         const pixelZ = (lm.z || 0) * drawWidth;
+        const pointConf = lm.confidence !== undefined ? lm.confidence : confidence;
 
         if (pixelX < minX) minX = pixelX;
         if (pixelY < minY) minY = pixelY;
@@ -99,22 +101,24 @@ export class KeypointExtractor {
           z: pixelZ,
           rawX: lm.x,
           rawY: lm.y,
-          rawZ: lm.z || 0
+          rawZ: lm.z || 0,
+          confidence: pointConf
         };
       });
 
       // Compute palm center (weighted midpoint between Wrist, Index MCP, and Pinky MCP)
       const wrist = landmarks[LANDMARK_INDICES.WRIST];
       const indexMcp = landmarks[LANDMARK_INDICES.INDEX_FINGER_MCP];
+      const middleMcp = landmarks[LANDMARK_INDICES.MIDDLE_FINGER_MCP];
       const pinkyMcp = landmarks[LANDMARK_INDICES.PINKY_MCP];
+      
       const palmCenter = {
-        x: (wrist.x + indexMcp.x + pinkyMcp.x) / 3,
-        y: (wrist.y + indexMcp.y + pinkyMcp.y) / 3,
-        z: (wrist.z + indexMcp.z + pinkyMcp.z) / 3
+        x: (wrist.x + indexMcp.x + middleMcp.x + pinkyMcp.x) / 4,
+        y: (wrist.y + indexMcp.y + middleMcp.y + pinkyMcp.y) / 4,
+        z: (wrist.z + indexMcp.z + middleMcp.z + pinkyMcp.z) / 4
       };
 
       // Compute hand span / scale (wrist to middle MCP distance in pixels)
-      const middleMcp = landmarks[LANDMARK_INDICES.MIDDLE_FINGER_MCP];
       const handScale = Math.hypot(middleMcp.x - wrist.x, middleMcp.y - wrist.y);
 
       hands.push({
@@ -122,14 +126,17 @@ export class KeypointExtractor {
         handedness: displayName,
         rawHandedness: rawCategory,
         confidence,
+        detectionLatencyMs: detectionResults.detectionLatencyMs || 0,
+        providerName: detectionResults.providerName || 'Unknown',
+        backendType: detectionResults.backendType || 'CPU',
         landmarks,
         palmCenter,
         handScale: Math.max(handScale, 20),
         boundingBox: {
           x: minX,
           y: minY,
-          width: maxX - minX,
-          height: maxY - minY
+          width: Math.max(0, maxX - minX),
+          height: Math.max(0, maxY - minY)
         }
       });
     }
