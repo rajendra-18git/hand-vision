@@ -309,6 +309,18 @@ export class FlowerRenderer {
     }
   }
 
+  addPointerPoint(x, y, now = performance.now()) {
+    if (!this.activeStrokes.has('mouse_ptr')) {
+      this.startStroke('mouse_ptr', { x, y });
+    } else {
+      this.addStrokePoint('mouse_ptr', { x, y });
+    }
+  }
+
+  endPointerStroke() {
+    this.endStroke('mouse_ptr');
+  }
+
   endStroke(trackId) {
     const stroke = this.activeStrokes.get(trackId);
     if (!stroke) return;

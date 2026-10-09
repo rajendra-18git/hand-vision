@@ -24,18 +24,34 @@ export class MediaPipeProvider extends HandTrackingProvider {
   async init(options = {}, progressCallback = () => {}) {
     progressCallback('wasm', 0.3);
 
+    const wasmPaths = [
+      '/wasm',
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+    ];
+
     let wasmFileset = null;
-    try {
-      wasmFileset = await FilesetResolver.forVisionTasks('/wasm');
-    } catch (localErr) {
-      wasmFileset = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
-      );
+    for (const wp of wasmPaths) {
+      try {
+        wasmFileset = await FilesetResolver.forVisionTasks(wp);
+        if (wasmFileset) {
+          console.log(`MediaPipe WASM fileset resolved from: ${wp}`);
+          break;
+        }
+      } catch (err) {
+        console.warn(`WASM resolution failed for ${wp}:`, err.message);
+      }
+    }
+
+    if (!wasmFileset) {
+      throw new Error('Failed to resolve MediaPipe Vision WASM fileset.');
     }
 
     progressCallback('model', 0.7);
 
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const modelPaths = [
+      origin ? `${origin}/models/hand_landmarker.task` : '/models/hand_landmarker.task',
       '/models/hand_landmarker.task',
       'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
     ];
@@ -81,6 +97,7 @@ export class MediaPipeProvider extends HandTrackingProvider {
   detect(inputFrame, timestamp = performance.now()) {
     if (!this.isReady || !this.landmarker) return null;
     if (!inputFrame || !inputFrame.videoWidth || !inputFrame.videoHeight) return null;
+    if (inputFrame.readyState !== undefined && inputFrame.readyState < 2) return null;
 
     const now = Math.max(Math.floor(timestamp || performance.now()), this.lastTimestamp + 1);
     this.lastTimestamp = now;

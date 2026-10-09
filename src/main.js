@@ -587,84 +587,88 @@ class VisionGardenApp {
     if (!this.isRunning) return;
     const loopStart = performance.now();
 
-    // 1. Calculate FPS Telemetry
-    this.frameCount++;
-    if (timestamp - this.lastFpsUpdate >= 500) {
-      this.fps = Math.round((this.frameCount * 1000) / (timestamp - this.lastFpsUpdate));
-      if (this.fpsCounter) this.fpsCounter.textContent = `${this.fps} FPS`;
-      this.frameCount = 0;
-      this.lastFpsUpdate = timestamp;
-    }
+    try {
+      // 1. Calculate FPS Telemetry
+      this.frameCount++;
+      if (timestamp - this.lastFpsUpdate >= 500) {
+        this.fps = Math.round((this.frameCount * 1000) / (timestamp - this.lastFpsUpdate));
+        if (this.fpsCounter) this.fpsCounter.textContent = `${this.fps} FPS`;
+        this.frameCount = 0;
+        this.lastFpsUpdate = timestamp;
+      }
 
-    const canvasWidth = this.drawingCanvas.width || window.innerWidth;
-    const canvasHeight = this.drawingCanvas.height || window.innerHeight;
-    const videoWidth = this.videoElement?.videoWidth || 1280;
-    const videoHeight = this.videoElement?.videoHeight || 720;
+      const canvasWidth = this.drawingCanvas.width || window.innerWidth;
+      const canvasHeight = this.drawingCanvas.height || window.innerHeight;
+      const videoWidth = this.videoElement?.videoWidth || 1280;
+      const videoHeight = this.videoElement?.videoHeight || 720;
 
-    // Exact CSS object-fit: cover transform for 1:1 pixel alignment
-    const transform = getCoverTransform(videoWidth, videoHeight, canvasWidth, canvasHeight);
+      // Exact CSS object-fit: cover transform for 1:1 pixel alignment
+      const transform = getCoverTransform(videoWidth, videoHeight, canvasWidth, canvasHeight);
 
-    // 2. Real-time Filter Processing
-    if (this.activeMode === APP_MODES.FILTERS) {
-      this.filterEngine.setIntensity(this.currentFilterIntensity);
-      this.filterEngine.processFrame(this.videoElement, timestamp, transform);
-    } else {
-      const fCtx = this.filterCanvas.getContext('2d');
-      fCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-    }
+      // 2. Real-time Filter Processing
+      if (this.activeMode === APP_MODES.FILTERS) {
+        this.filterEngine.setIntensity(this.currentFilterIntensity);
+        this.filterEngine.processFrame(this.videoElement, timestamp, transform);
+      } else {
+        const fCtx = this.filterCanvas.getContext('2d');
+        fCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      }
 
-    // 3. Modular Vision Detection (MediaPipe or YOLO)
-    let gestureResult = { hands: [], activeGesture: GESTURE_TYPES.NONE };
-    let detectionLatencyMs = 0;
+      // 3. Modular Vision Detection (MediaPipe or YOLO)
+      let gestureResult = { hands: [], primaryHand: null, secondaryHand: null, activeGesture: GESTURE_TYPES.NONE };
+      let detectionLatencyMs = 0;
 
-    if (this.videoElement && (this.videoElement.readyState >= 2 || (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0))) {
-      const rawResults = this.detector.detect(this.videoElement, timestamp);
-      detectionLatencyMs = rawResults?.detectionLatencyMs || 0;
+      if (this.videoElement && (this.videoElement.readyState >= 2 || (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0))) {
+        const rawResults = this.detector.detect(this.videoElement, timestamp);
+        detectionLatencyMs = rawResults?.detectionLatencyMs || 0;
 
-      const extractedHands = this.keypoints.process(rawResults, canvasWidth, canvasHeight, true, transform);
-      const trackedHands = this.tracker.track(extractedHands, timestamp);
-      const smoothedHands = this.motionManager.process(trackedHands, timestamp);
+        const extractedHands = this.keypoints.process(rawResults, canvasWidth, canvasHeight, true, transform);
+        const trackedHands = this.tracker.track(extractedHands, timestamp);
+        const smoothedHands = this.motionManager.process(trackedHands, timestamp);
 
-      // Centralized Gesture Engine Feature Extraction
-      gestureResult = this.gestureEngine.process(smoothedHands, timestamp);
-    }
+        // Centralized Gesture Engine Feature Extraction
+        gestureResult = this.gestureEngine.process(smoothedHands, timestamp);
+      }
 
-    if (this.handsCounter) {
-      const numHands = gestureResult.hands.length;
-      this.handsCounter.textContent = `${numHands} Hand${numHands === 1 ? '' : 's'}`;
-    }
+      if (this.handsCounter) {
+        const numHands = gestureResult.hands ? gestureResult.hands.length : 0;
+        this.handsCounter.textContent = `${numHands} Hand${numHands === 1 ? '' : 's'}`;
+      }
 
-    // 4. Invisibility Cloak Layer Rendering (Decoupled from Hand Tracking)
-    this.invisibilityEngine.render(this.videoElement, gestureResult, timestamp);
+      // 4. Invisibility Cloak Layer Rendering (Decoupled from Hand Tracking)
+      this.invisibilityEngine.render(this.videoElement, gestureResult, timestamp);
 
-    // 5. Handle Global Discrete Gestures
-    this.handleGestures(gestureResult, timestamp);
+      // 5. Handle Global Discrete Gestures
+      this.handleGestures(gestureResult, timestamp);
 
-    // 6. Render Selected Mode Engine Layer
-    this.renderActiveModeEngine(gestureResult, timestamp);
+      // 6. Render Selected Mode Engine Layer
+      this.renderActiveModeEngine(gestureResult, timestamp);
 
-    // 7. Render Skeleton & Dynamic Reticle Overlay Canvas
-    const sCtx = this.skeletonCanvas.getContext('2d');
-    sCtx.clearRect(0, 0, this.skeletonCanvas.width, this.skeletonCanvas.height);
-    this.skeletonRenderer.render(gestureResult, this.activeMode);
+      // 7. Render Skeleton & Dynamic Reticle Overlay Canvas
+      const sCtx = this.skeletonCanvas.getContext('2d');
+      sCtx.clearRect(0, 0, this.skeletonCanvas.width, this.skeletonCanvas.height);
+      this.skeletonRenderer.render(gestureResult, this.activeMode);
 
-    // 8. Record Telemetry to Benchmark Suite
-    const loopEnd = performance.now();
-    const e2eLatencyMs = loopEnd - loopStart;
-    const primaryTip = gestureResult.primaryHand ? gestureResult.primaryHand.landmarks[8] : null;
+      // 8. Record Telemetry to Benchmark Suite
+      const loopEnd = performance.now();
+      const e2eLatencyMs = loopEnd - loopStart;
+      const primaryTip = gestureResult.primaryHand ? gestureResult.primaryHand.landmarks[8] : null;
 
-    this.benchmark.recordFrame({
-      detectionLatencyMs,
-      e2eLatencyMs,
-      hasDetection: gestureResult.hands.length > 0,
-      fingertipPos: primaryTip,
-      isPinching: gestureResult.primaryHand ? gestureResult.primaryHand.isPinching : false,
-      timestamp
-    });
+      this.benchmark.recordFrame({
+        detectionLatencyMs,
+        e2eLatencyMs,
+        hasDetection: gestureResult.hands && gestureResult.hands.length > 0,
+        fingertipPos: primaryTip,
+        isPinching: gestureResult.primaryHand ? gestureResult.primaryHand.isPinching : false,
+        timestamp
+      });
 
-    // Update live benchmark HUD if modal is visible
-    if (!this.benchmarkModal.classList.contains('hidden')) {
-      this.updateBenchmarkLiveHUD();
+      // Update live benchmark HUD if modal is visible
+      if (!this.benchmarkModal.classList.contains('hidden')) {
+        this.updateBenchmarkLiveHUD();
+      }
+    } catch (loopErr) {
+      console.error('Render loop error:', loopErr);
     }
 
     requestAnimationFrame((ts) => this.renderLoop(ts));
@@ -731,11 +735,13 @@ class VisionGardenApp {
   }
 
   handleGestures(gestureResult, timestamp) {
+    if (!gestureResult) return;
+    const { primaryHand, activeGesture } = gestureResult;
     if (!primaryHand) return;
 
     // Continuous Pinch Intensity Control (0.0 -> 1.0)
     if (primaryHand.isPinching && this.activeMode === APP_MODES.FILTERS) {
-      const normalizedPinch = primaryHand.normalizedPinchDistance;
+      const normalizedPinch = primaryHand.normalizedPinchDistance ?? 0.5;
       this.updatePinchIntensity(normalizedPinch);
 
       const roundedPercent = Math.round(normalizedPinch * 100);
