@@ -56,8 +56,8 @@ export class MediaPipeProvider extends HandTrackingProvider {
       'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
     ];
 
-    // Try CPU first for guaranteed zero-flicker stability across all Windows GPUs
-    const delegates = ['CPU', 'GPU'];
+    // Try GPU first for fast 60fps hardware acceleration, fallback to CPU
+    const delegates = ['GPU', 'CPU'];
 
     for (const delegate of delegates) {
       for (const modelPath of modelPaths) {

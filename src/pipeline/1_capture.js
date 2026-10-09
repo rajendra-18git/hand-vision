@@ -93,30 +93,33 @@ export class CameraManager {
       });
     }
 
-    // Tier 1: Ideal HD 720p with flexible facingMode
+    // Tier 1: Ideal HD 720p 60fps with flexible facingMode
     constraintTiers.push({
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
+        frameRate: { ideal: 60, min: 30 },
         facingMode: { ideal: this.facingMode }
       },
       audio: false
     });
 
-    // Tier 2: HD without facingMode (for PC webcams without facingMode attribute)
+    // Tier 2: HD 60fps without facingMode
     constraintTiers.push({
       video: {
         width: { ideal: 1280 },
-        height: { ideal: 720 }
+        height: { ideal: 720 },
+        frameRate: { ideal: 60, min: 30 }
       },
       audio: false
     });
 
-    // Tier 3: Standard resolution (640x480)
+    // Tier 3: Standard resolution (640x480) 60fps
     constraintTiers.push({
       video: {
         width: { ideal: 640 },
-        height: { ideal: 480 }
+        height: { ideal: 480 },
+        frameRate: { ideal: 60, min: 30 }
       },
       audio: false
     });

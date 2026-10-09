@@ -178,6 +178,11 @@ class VisionGardenApp {
     this.fps = 60;
     this.galleryItems = [];
 
+    // Decoupled Vision Detection State
+    this.isDetecting = false;
+    this.latestGestureResult = { hands: [], primaryHand: null, secondaryHand: null, activeGesture: GESTURE_TYPES.NONE };
+    this.latestDetectionLatencyMs = 0;
+
     // Recording State
     this.mediaRecorder = null;
     this.recordedChunks = [];
@@ -501,6 +506,33 @@ class VisionGardenApp {
     }
   }
 
+  clearInactiveCanvases(exceptMode = this.activeMode) {
+    const w = this.drawingCanvas?.width || window.innerWidth;
+    const h = this.drawingCanvas?.height || window.innerHeight;
+
+    if (exceptMode !== APP_MODES.CREATE) {
+      this.drawingCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+    if (exceptMode !== APP_MODES.GALAXY) {
+      this.galaxyCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+    if (exceptMode !== APP_MODES.MAGIC) {
+      this.magicCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+    if (exceptMode !== APP_MODES.HOLOGRAM) {
+      this.holoEngine?.clear();
+    }
+    if (exceptMode !== APP_MODES.SYNTH) {
+      this.synthCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+    if (exceptMode !== APP_MODES.SLASH) {
+      this.slashCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+    if (exceptMode !== APP_MODES.FILTERS) {
+      this.filterCanvas?.getContext('2d')?.clearRect(0, 0, w, h);
+    }
+  }
+
   setMode(newMode) {
     if (!APP_MODES[newMode] || this.activeMode === newMode) return;
 
@@ -519,6 +551,7 @@ class VisionGardenApp {
       });
     }
 
+    this.clearInactiveCanvases(newMode);
     this.activeMode = newMode;
 
     // Update Mode Buttons
@@ -581,7 +614,31 @@ class VisionGardenApp {
   }
 
   /**
-   * Main High-Performance Vision & AR Render Loop
+   * High-Performance Asynchronous Vision Pipeline Step
+   */
+  async runVisionDetection(timestamp, transform, canvasWidth, canvasHeight) {
+    if (this.isDetecting) return;
+    this.isDetecting = true;
+
+    try {
+      const rawResults = this.detector.detect(this.videoElement, timestamp);
+      this.latestDetectionLatencyMs = rawResults?.detectionLatencyMs || 0;
+
+      const extractedHands = this.keypoints.process(rawResults, canvasWidth, canvasHeight, true, transform);
+      const trackedHands = this.tracker.track(extractedHands, timestamp);
+      const smoothedHands = this.motionManager.process(trackedHands, timestamp);
+
+      // Centralized Gesture Engine Feature Extraction
+      this.latestGestureResult = this.gestureEngine.process(smoothedHands, timestamp);
+    } catch (err) {
+      console.warn('Vision detection cycle notice:', err);
+    } finally {
+      this.isDetecting = false;
+    }
+  }
+
+  /**
+   * Main High-Performance Constant 60 FPS Vision & AR Render Loop
    */
   renderLoop(timestamp) {
     if (!this.isRunning) return;
@@ -609,26 +666,14 @@ class VisionGardenApp {
       if (this.activeMode === APP_MODES.FILTERS) {
         this.filterEngine.setIntensity(this.currentFilterIntensity);
         this.filterEngine.processFrame(this.videoElement, timestamp, transform);
-      } else {
-        const fCtx = this.filterCanvas.getContext('2d');
-        fCtx.clearRect(0, 0, canvasWidth, canvasHeight);
       }
 
-      // 3. Modular Vision Detection (MediaPipe or YOLO)
-      let gestureResult = { hands: [], primaryHand: null, secondaryHand: null, activeGesture: GESTURE_TYPES.NONE };
-      let detectionLatencyMs = 0;
-
-      if (this.videoElement && (this.videoElement.readyState >= 2 || (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0))) {
-        const rawResults = this.detector.detect(this.videoElement, timestamp);
-        detectionLatencyMs = rawResults?.detectionLatencyMs || 0;
-
-        const extractedHands = this.keypoints.process(rawResults, canvasWidth, canvasHeight, true, transform);
-        const trackedHands = this.tracker.track(extractedHands, timestamp);
-        const smoothedHands = this.motionManager.process(trackedHands, timestamp);
-
-        // Centralized Gesture Engine Feature Extraction
-        gestureResult = this.gestureEngine.process(smoothedHands, timestamp);
+      // 3. Trigger decoupled hardware vision detection
+      if (!this.isDetecting && this.videoElement && (this.videoElement.readyState >= 2 || (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0))) {
+        this.runVisionDetection(timestamp, transform, canvasWidth, canvasHeight);
       }
+
+      const gestureResult = this.latestGestureResult || { hands: [], primaryHand: null, secondaryHand: null, activeGesture: GESTURE_TYPES.NONE };
 
       if (this.handsCounter) {
         const numHands = gestureResult.hands ? gestureResult.hands.length : 0;
@@ -641,7 +686,7 @@ class VisionGardenApp {
       // 5. Handle Global Discrete Gestures
       this.handleGestures(gestureResult, timestamp);
 
-      // 6. Render Selected Mode Engine Layer
+      // 6. Render Selected Mode Engine Layer (Zero fillrate waste on inactive canvases)
       this.renderActiveModeEngine(gestureResult, timestamp);
 
       // 7. Render Skeleton & Dynamic Reticle Overlay Canvas
@@ -655,7 +700,7 @@ class VisionGardenApp {
       const primaryTip = gestureResult.primaryHand ? gestureResult.primaryHand.landmarks[8] : null;
 
       this.benchmark.recordFrame({
-        detectionLatencyMs,
+        detectionLatencyMs: this.latestDetectionLatencyMs || 0,
         e2eLatencyMs,
         hasDetection: gestureResult.hands && gestureResult.hands.length > 0,
         fingertipPos: primaryTip,
@@ -675,35 +720,7 @@ class VisionGardenApp {
   }
 
   renderActiveModeEngine(gestureResult, timestamp) {
-    const w = this.drawingCanvas.width;
-    const h = this.drawingCanvas.height;
-
-    // Clear non-active canvases to prevent blocking
-    if (this.activeMode !== APP_MODES.CREATE) {
-      const dCtx = this.drawingCanvas.getContext('2d');
-      dCtx.clearRect(0, 0, w, h);
-    }
-    if (this.activeMode !== APP_MODES.GALAXY) {
-      const ctx = this.galaxyCanvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-    }
-    if (this.activeMode !== APP_MODES.MAGIC) {
-      const ctx = this.magicCanvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-    }
-    if (this.activeMode !== APP_MODES.HOLOGRAM) {
-      this.holoEngine?.clear();
-    }
-    if (this.activeMode !== APP_MODES.SYNTH) {
-      const ctx = this.synthCanvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-    }
-    if (this.activeMode !== APP_MODES.SLASH) {
-      const ctx = this.slashCanvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-    }
-
-    // Render active mode
+    // Only update and render the currently active experience engine
     switch (this.activeMode) {
       case APP_MODES.CREATE:
         this.renderFlowerLayer(gestureResult, timestamp);
