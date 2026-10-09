@@ -176,6 +176,9 @@ class VisionGardenApp {
     this.frameCount = 0;
     this.lastFpsUpdate = performance.now();
     this.fps = 60;
+    this.targetFPS = 60;
+    this.frameInterval = 1000 / 60; // 16.667ms per frame
+    this.lastRenderTime = 0;
     this.galleryItems = [];
 
     // Decoupled Vision Detection State
@@ -642,13 +645,23 @@ class VisionGardenApp {
    */
   renderLoop(timestamp) {
     if (!this.isRunning) return;
+
+    // Frame pacing: lock to exact 60 FPS (skip frames on 120Hz/144Hz/240Hz displays)
+    const elapsed = timestamp - this.lastRenderTime;
+    if (elapsed < this.frameInterval - 0.75) {
+      requestAnimationFrame((ts) => this.renderLoop(ts));
+      return;
+    }
+    this.lastRenderTime = timestamp - (elapsed % this.frameInterval);
+
     const loopStart = performance.now();
 
     try {
-      // 1. Calculate FPS Telemetry
+      // 1. Calculate FPS Telemetry (locked to exact 60 max)
       this.frameCount++;
       if (timestamp - this.lastFpsUpdate >= 500) {
-        this.fps = Math.round((this.frameCount * 1000) / (timestamp - this.lastFpsUpdate));
+        const measured = Math.round((this.frameCount * 1000) / (timestamp - this.lastFpsUpdate));
+        this.fps = Math.min(60, Math.max(1, measured));
         if (this.fpsCounter) this.fpsCounter.textContent = `${this.fps} FPS`;
         this.frameCount = 0;
         this.lastFpsUpdate = timestamp;
