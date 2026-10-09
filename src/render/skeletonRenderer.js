@@ -16,7 +16,7 @@ export class SkeletonRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.visible = true;
-    this.showSkeletonLines = false; // Minimal by default
+    this.showSkeletonLines = true; // Enabled by default for rich visual tracking feedback
   }
 
   setVisible(visible) {

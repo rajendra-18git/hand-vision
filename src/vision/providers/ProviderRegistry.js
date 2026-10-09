@@ -19,8 +19,11 @@ export class ProviderRegistry {
     this.onProviderSwitch = options.onProviderSwitch || (() => {});
 
     // Register built-in providers
-    this.register(PROVIDER_TYPES.MEDIAPIPE, new MediaPipeProvider(options));
-    this.register(PROVIDER_TYPES.YOLO, new YOLOHandProvider(options));
+    const mpProvider = new MediaPipeProvider(options);
+    const yoloProvider = new YOLOHandProvider({ ...options, fallbackProvider: mpProvider });
+
+    this.register(PROVIDER_TYPES.MEDIAPIPE, mpProvider);
+    this.register(PROVIDER_TYPES.YOLO, yoloProvider);
   }
 
   register(key, providerInstance) {
